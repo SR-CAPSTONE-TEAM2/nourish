@@ -123,6 +123,7 @@ export default function Login() {
   const [primaryHover, setPrimaryHover] = useState(false)
   const [googleHover, setGoogleHover] = useState(false)
   const [inputFocus, setInputFocus] = useState(false)
+  const [devHover, setDevHover] = useState(false)
   const router = useRouter()
   console.log(window.location.origin)
 
@@ -224,7 +225,17 @@ export default function Login() {
           </button>
         </form>
         {process.env.NODE_ENV === 'development' && (
-          <button onClick={signInAsDummyUser}>
+          <button
+            onClick={signInAsDummyUser}
+            style={{
+              ...styles.googleButton,
+              backgroundColor: devHover ? '#383838' : '#2e2e2e',
+              borderColor: devHover ? '#555' : '#3a3a3a',
+              transform: devHover ? 'translateY(-1px)' : 'none',
+            }}
+            onMouseEnter={() => setDevHover(true)}
+            onMouseLeave={() => setDevHover(false)}
+          >
             Dev Login (Simeon)
           </button>
         )}

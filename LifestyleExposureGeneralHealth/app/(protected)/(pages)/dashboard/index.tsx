@@ -193,12 +193,13 @@ export default function Dashboard() {
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}>
       <div style={{
-        minHeight: '100vh',
-        background: '#141414',
-        color: '#e0e0e0',
-        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-        padding: '0',
-      }}>
+          height: '100vh',
+          overflowY: 'auto',
+          background: '#141414',
+          color: '#e0e0e0',
+          fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
+          padding: '0',
+        }}>
         {/* Google Font */}
         <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap');
