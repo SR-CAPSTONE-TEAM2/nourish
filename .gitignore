@@ -1,3 +1,3 @@
 .git/
-
+.env
 react_native_app.nix
