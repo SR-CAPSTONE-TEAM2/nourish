@@ -72,14 +72,6 @@ export default function JournalScreen() {
         options={{
           headerShown: true,
           title: 'Journal',
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={handleAddNew}
-              style={styles.headerButton}
-            >
-              <Ionicons name="add-circle-outline" size={28} color={iconColor} />
-            </TouchableOpacity>
-          ),
         }}
       />
 
