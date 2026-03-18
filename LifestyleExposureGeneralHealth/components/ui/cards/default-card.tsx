@@ -19,7 +19,7 @@ export function DefaultCard({ data, onPress, disabled = false }: CardProps) {
       disabled={disabled || !onPress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: theme === 'light' ? '#f0f0f0' : '#2a2a2a' },
+        { backgroundColor: theme === 'light' ? '#f0f0f0' : '#1C1C2E' },
         pressed && onPress && styles.pressed,
         disabled && styles.disabled,
       ]}

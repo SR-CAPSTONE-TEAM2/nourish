@@ -118,27 +118,39 @@ export default function HomeScreen() {
     };
   }, [totalMinerals]);
 
+  const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={<View style={styles.blankHeader} />}
+      headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}
+      headerImage={
+        <View style={styles.headerContent}>
+          <View style={styles.headerGlow} />
+          <View style={styles.headerGlow2} />
+          <ThemedText style={styles.headerDate}>{dateLabel}</ThemedText>
+          <ThemedText style={styles.headerTitle}>Daily Nutrition</ThemedText>
+        </View>
+      }
     >
       {/* Title and Add Button */}
-      <ThemedView style={styles.titleContainer}>
-        <View style={styles.titleLeft}>
-          <ThemedText type="title">Lifestyle Health</ThemedText>
-        </View>
+      <View style={styles.titleContainer}>
+        <ThemedText type="title">Today's Stats</ThemedText>
         <TouchableOpacity
           onPress={() => alert('Add food (placeholder)')}
           activeOpacity={0.8}
           style={styles.addButton}
         >
-          <ThemedText type="title">+</ThemedText>
+          <ThemedText style={styles.addButtonLabel}>+ Add Food</ThemedText>
         </TouchableOpacity>
-      </ThemedView>
+      </View>
 
       {/* Summary Section */}
       <SummarySection totals={totals} percents={percents} />
+
+      {/* Meals label */}
+      <View style={styles.sectionHeaderRow}>
+        <ThemedText style={styles.sectionLabel}>TODAY'S MEALS</ThemedText>
+      </View>
 
       {/* Meal Sections */}
       <MealSections
@@ -149,6 +161,11 @@ export default function HomeScreen() {
           pathname: '/(modals)/food-modal',
           params: { foodId: item.id }
         })} />
+
+      {/* Nutrient Report label */}
+      <View style={styles.sectionHeaderRow}>
+        <ThemedText style={styles.sectionLabel}>NUTRIENT BREAKDOWN</ThemedText>
+      </View>
 
       {/* Nutrient Report */}
       <NutrientReport
@@ -164,31 +181,73 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  blankHeader: {
-    height: 60,
-    backgroundColor: 'transparent',
+  headerContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    padding: 24,
+    paddingBottom: 28,
+  },
+  headerGlow: {
+    position: 'absolute',
+    top: -80,
+    right: -80,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    backgroundColor: 'rgba(139,92,246,0.15)',
+  },
+  headerGlow2: {
+    position: 'absolute',
+    bottom: -40,
+    left: -40,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: 'rgba(99,102,241,0.1)',
+  },
+  headerDate: {
+    color: 'rgba(255,255,255,0.45)',
+    fontSize: 12,
+    fontFamily: 'Ubuntu_400Regular',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 6,
+  },
+  headerTitle: {
+    color: 'white',
+    fontSize: 30,
+    fontFamily: 'Ubuntu_700Bold',
+    fontWeight: 'bold',
   },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    marginBottom: 4,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  sectionHeaderRow: {
+    marginTop: 16,
+    marginBottom: 6,
+    paddingHorizontal: 2,
   },
-  titleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  sectionLabel: {
+    fontSize: 11,
+    letterSpacing: 1.5,
+    color: '#6B6B8A',
+    fontFamily: 'Ubuntu_400Regular',
   },
   addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    backgroundColor: '#8B5CF6',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  addButtonLabel: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'Ubuntu_700Bold',
+    fontWeight: '600',
   },
 })

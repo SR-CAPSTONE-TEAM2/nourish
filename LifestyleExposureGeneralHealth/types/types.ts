@@ -38,3 +38,30 @@ export type FoodItem = {
   vitamins: Vitamins;
   minerals: Minerals;
 };
+
+export interface UserProfile {
+  user_id: string
+  username: string
+  first_name: string
+  last_name: string
+  birthday: string
+  height: number
+  created_at: string
+}
+
+export interface Meal {
+  meal_id: string
+  meal_type: string
+  meal_date: string
+  total_calories: number
+  meal_rating: number
+}
+
+export interface Metric {
+  metric_id: string
+  observation_date: string
+  weight: number
+  protein: number
+  carbs: number
+  sugar: number
+}

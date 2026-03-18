@@ -48,7 +48,10 @@ export const NutrientReport = ({
           style={styles.reportHeader}
           activeOpacity={0.7}
         >
-          <ThemedText type="subtitle">Vitamins</ThemedText>
+          <View style={styles.reportHeaderLeft}>
+            <View style={[styles.sectionAccent, { backgroundColor: '#8B5CF6' }]} />
+            <ThemedText type="subtitle">Vitamins</ThemedText>
+          </View>
           <ThemedText type="defaultSemiBold" style={styles.chevron}>
             {expandedReportSections.has('vitamins') ? '▼' : '▶'}
           </ThemedText>
@@ -173,7 +176,10 @@ export const NutrientReport = ({
           style={styles.reportHeader}
           activeOpacity={0.7}
         >
-          <ThemedText type="subtitle">Minerals</ThemedText>
+          <View style={styles.reportHeaderLeft}>
+            <View style={[styles.sectionAccent, { backgroundColor: '#F59E0B' }]} />
+            <ThemedText type="subtitle">Minerals</ThemedText>
+          </View>
           <ThemedText type="defaultSemiBold" style={styles.chevron}>
             {expandedReportSections.has('minerals') ? '▼' : '▶'}
           </ThemedText>
@@ -270,40 +276,53 @@ export const NutrientReport = ({
 
 const styles = StyleSheet.create({
   chevron: {
-    fontSize: 12,
+    fontSize: 11,
+    color: '#6B6B8A',
   },
   reportSection: {
-    marginVertical: 16,
-    paddingHorizontal: 4,
+    marginVertical: 4,
+    gap: 10,
   },
   reportTitle: {
-    marginBottom: 12,
+    marginBottom: 4,
     fontSize: 24,
     fontWeight: 'bold',
   },
   reportSubsection: {
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 14,
+    backgroundColor: '#1C1C2E',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    overflow: 'hidden',
   },
   reportHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 4,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
+  },
+  reportHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  sectionAccent: {
+    width: 3,
+    height: 20,
+    borderRadius: 2,
   },
   vitaminsList: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
     gap: 8,
   },
   vitaminNutrientRow: {
-    gap: 8,
+    gap: 6,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   vitaminLabel: {
     flexDirection: 'row',

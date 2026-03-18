@@ -11,6 +11,14 @@ export default function ProfileLayout() {
           title: 'Profile',
         }}
       />
+      <Stack.Screen
+        name="ask-ai"
+        options={{
+          headerShown: true,
+          freezeOnBlur: true,
+          title: 'Ask AI',
+        }}
+      />
       {/* Other screens */}
       <Stack.Screen
         name='settings'

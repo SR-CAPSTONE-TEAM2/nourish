@@ -47,10 +47,12 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#3b4261',
+    backgroundColor: '#1C1C2E',
     borderRadius: 16,
     padding: 16,
     gap: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -73,7 +75,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   accountLabel: {
-    color: '#aaa',
+    color: '#6B6B8A',
     fontSize: 14,
   },
   accountEmail: {
@@ -88,12 +90,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   linkButton: {
-    backgroundColor: '#f5a623',
+    backgroundColor: '#8B5CF6',
   },
   unlinkButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#aaa',
+    borderColor: '#6B6B8A',
   },
   buttonText: {
     fontSize: 14,

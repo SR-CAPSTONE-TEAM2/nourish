@@ -1,11 +1,15 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { MealType } from '@/types/types';
+
+const getBarColor = (percent: number) => {
+  if (percent >= 100) return '#EF4444'; // Over — red
+  return '#00ff7f';                     // Under — blue
+};
 
 export const ProgressBar = ({ percent }: { percent: number }) => {
   const clamped = Math.max(0, Math.min(100, percent));
-  const fillColor = percent >= 200 ? '#f44336' : '#4caf50';
+  const fillColor = getBarColor(percent);
   return (
     <View style={styles.progressRow}>
       <View style={styles.progressBar}>
@@ -21,21 +25,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 8,
+    marginTop: 6,
   },
   progressBar: {
     flex: 1,
-    height: 8,
-    backgroundColor: 'rgba(0,0,0,0.06)',
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 6,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#4caf50',
+    borderRadius: 6,
   },
   percentText: {
-    width: 48,
+    width: 44,
     textAlign: 'right',
+    fontSize: 12,
+    color: '#6B6B8A',
   },
 })

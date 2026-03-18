@@ -5,25 +5,31 @@
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// Dark modern palette
+const accent = '#8B5CF6';          // Purple accent
+const accentMuted = '#6D4EC2';     // Deeper purple for light mode
 
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
+    background: '#F8F8FC',
+    tint: accentMuted,
     icon: '#687076',
     tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    tabIconSelected: accentMuted,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: '#E8E8F0',
+    background: '#0A0A12',         // Near-black base
+    surface: '#12121E',            // Dark surface
+    surfaceElevated: '#1C1C2E',    // Elevated cards
+    tint: accent,
+    icon: '#6B6B8A',
+    tabIconDefault: '#6B6B8A',
+    tabIconSelected: accent,
+    border: 'rgba(255,255,255,0.07)',
+    textMuted: '#6B6B8A',
+    accent,
   },
 };
 

@@ -79,7 +79,7 @@ function SelectPicker({ value, options, onSelect }: {
                     {item}
                   </Text>
                   {item === value && (
-                    <Ionicons name="checkmark" size={16} color="#f5a623" />
+                    <Ionicons name="checkmark" size={16} color="#8B5CF6" />
                   )}
                 </TouchableOpacity>
               )}
@@ -134,11 +134,13 @@ export function ProfileOptionsContainer({ children, style }: ProfileOptionsConta
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#3b4261',
+    backgroundColor: '#1C1C2E',
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 8,
     gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
   },
   row: {
     flexDirection: 'row',
@@ -159,7 +161,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 3,
   },
   pillOn: {
-    backgroundColor: '#f5a623',
+    backgroundColor: '#8B5CF6',
   },
   pillOff: {
     backgroundColor: '#555',
@@ -179,7 +181,7 @@ const styles = StyleSheet.create({
   selectButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2a2f4a',
+    backgroundColor: '#0A0A12',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 6,
@@ -196,10 +198,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   modalContent: {
-    backgroundColor: '#3b4261',
+    backgroundColor: '#1C1C2E',
     borderRadius: 16,
     overflow: 'hidden',
     maxHeight: 300,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
   },
   option: {
     flexDirection: 'row',
@@ -209,10 +213,10 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   optionSelected: {
-    backgroundColor: '#2a2f4a',
+    backgroundColor: '#0A0A12',
   },
   optionText: {
-    color: '#aaa',
+    color: '#6B6B8A',
     fontSize: 15,
   },
   optionTextSelected: {

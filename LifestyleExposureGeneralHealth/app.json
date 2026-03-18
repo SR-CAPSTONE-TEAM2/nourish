@@ -64,6 +64,10 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "supabaseUrl": "https://rlcgefqjasmfqynyshlh.supabase.co",
+      "supabasePubKey": "sb_publishable_0DneuTZIqMJObaZbr2w4_Q_uBocEo3g"
     }
   }
 }

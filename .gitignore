@@ -1,3 +1,7 @@
 .git/
 .env
 react_native_app.nix
+
+node_modules/
+package-lock.json
+package.json

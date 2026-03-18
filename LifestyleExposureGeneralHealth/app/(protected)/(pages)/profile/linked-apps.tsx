@@ -100,12 +100,13 @@ export default function LinkedAppsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#0A0A12',
     paddingHorizontal: 24,
     paddingTop: 32,
   },
   addButton: {
     alignSelf: 'center',
-    backgroundColor: '#f5a623',
+    backgroundColor: '#8B5CF6',
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -127,7 +128,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#3b4261',
+    backgroundColor: '#1C1C2E',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 32,
@@ -139,18 +140,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   modalBody: {
-    color: '#aaa',
+    color: '#6B6B8A',
     fontSize: 15,
   },
   modalClose: {
     marginTop: 8,
-    backgroundColor: '#f5a623',
+    backgroundColor: '#8B5CF6',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
   },
   modalCloseText: {
-    color: 'black',
+    color: 'white',
     fontWeight: '700',
     fontSize: 16,
   },

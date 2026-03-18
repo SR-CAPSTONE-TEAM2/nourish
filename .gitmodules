@@ -1,0 +1,3 @@
+[submodule "docsite"]
+	path = docsite
+	url = git@github.com:Divenchy/hugo-doc-site-team2.git

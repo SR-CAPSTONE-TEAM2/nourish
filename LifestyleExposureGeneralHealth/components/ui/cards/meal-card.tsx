@@ -19,7 +19,7 @@ export function MealCard({ data, onPress }: MealCardProps) {
       disabled={!onPress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: theme === 'light' ? '#ffffff' : '#2a2a2a' },
+        { backgroundColor: theme === 'light' ? '#ffffff' : '#1C1C2E' },
         pressed && onPress && styles.pressed,
       ]}
     >

@@ -1,22 +1,64 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
+
+import { useRouter } from 'expo-router';
+import { supabase } from '../../../lib/supabase';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<any>(null);
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session);
+      setLoading(false);
+    };
+
+    checkUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (loading) return null;
+
+  if (!session) {
+    router.replace('/login');
+    return null;
+  }
 
   return (
     <Tabs
       screenOptions={{
         lazy: true,
         freezeOnBlur: true,
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
         tabBarButton: HapticTab,
+        tabBarActiveTintColor: '#8B5CF6',
+        tabBarInactiveTintColor: '#6B6B8A',
+        tabBarStyle: {
+          backgroundColor: '#0F0F1A',
+          borderTopColor: 'rgba(255,255,255,0.07)',
+          borderTopWidth: 1,
+          elevation: 0,
+        },
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontFamily: 'Ubuntu_400Regular',
+          marginBottom: 2,
+        },
       }}>
       <Tabs.Screen
         name="dashboard"

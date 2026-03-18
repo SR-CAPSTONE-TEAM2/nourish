@@ -6,7 +6,7 @@ export interface BaseCardData {
 
 export interface DefaultCardData extends BaseCardData {
   title: string;
-  desc: string;
+  desc?: string;
 }
 
 export interface Macros {
