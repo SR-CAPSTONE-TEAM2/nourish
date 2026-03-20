@@ -225,6 +225,18 @@ export default function Dashboard() {
             Nourish
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button onClick={() => router.push('/(protected)/(pages)/search')} style={{
+              background: '#2a2a2a', border: '1px solid #333',
+              borderRadius: '10px', padding: '7px 14px',
+              color: '#bbb', fontSize: '13px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              transition: 'border-color 0.2s, color 0.2s',
+            }}
+              onMouseEnter={e => { (e.target as HTMLButtonElement).style.color = '#e0e0e0'; (e.target as HTMLButtonElement).style.borderColor = '#555' }}
+              onMouseLeave={e => { (e.target as HTMLButtonElement).style.color = '#bbb'; (e.target as HTMLButtonElement).style.borderColor = '#333' }}
+            >
+              🔍 Search
+            </button>
             <div style={{
               width: '36px', height: '36px', borderRadius: '50%',
               background: '#2a2a2a', border: '1px solid #333',
