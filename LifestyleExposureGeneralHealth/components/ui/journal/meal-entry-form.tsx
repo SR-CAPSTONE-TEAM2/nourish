@@ -27,18 +27,20 @@ interface MealEntryFormProps {
   onSubmit: (entry: Omit<MealEntry, 'id' | 'createdAt'>) => Promise<void>;
   onCancel: () => void;
   initialEntry?: MealEntry;
+  lockedMealType?: string;  // ← add this
 }
 
 export const MealEntryForm: React.FC<MealEntryFormProps> = ({
   onSubmit,
   onCancel,
   initialEntry,
+  lockedMealType,
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   const [mealType, setMealType] = useState<MealType | null>(
-    initialEntry?.mealType || null
+    (lockedMealType as MealType) ?? initialEntry?.mealType ?? null  // ← prefer locked
   );
   const [foodDescription, setFoodDescription] = useState(
     initialEntry?.foodDescription || ''
@@ -150,7 +152,10 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <MealTypeSelector selected={mealType} onSelect={setMealType} />
+        {/* Only show selector if meal type isn't locked by the sheet */}
+        {!lockedMealType && (
+          <MealTypeSelector selected={mealType} onSelect={setMealType} />
+        )}
 
         <View style={styles.inputContainer}>
           <ThemedText type="defaultSemiBold" style={styles.label}>

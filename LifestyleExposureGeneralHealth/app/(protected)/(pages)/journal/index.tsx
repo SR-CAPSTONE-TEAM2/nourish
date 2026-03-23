@@ -1,184 +1,161 @@
 import React, { useState } from 'react';
 import {
   View,
+  ScrollView,
   TouchableOpacity,
   StyleSheet,
   Modal,
   useColorScheme,
+  ActivityIndicator,
 } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { MealEntry } from '@/types/journal';
-import { useJournalEntries } from '@/hooks/useJournalEntries';
-import { MealEntryForm } from '@/components/ui/journal/meal-entry-form';
-import { MealEntryList } from '@/components/ui/journal/meal-entry-list';
 import { ThemedText } from '@/components/themed-text';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedView } from '@/components/themed-view';
+import { MealCard } from '@/components/ui/journal/meal-card';
+import { MealJournalSheet } from '@/components/ui/journal/meal-journal-sheet';
+import { AVAILABLE_MEAL_TYPES } from '@/types/journal';
+import { useUserDiet } from '@/hooks/useUserDiet';
+import { useRouter } from 'expo-router';
 
 export default function JournalScreen() {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
-  const iconColor = isDark ? 'white' : 'black';
   const router = useRouter();
 
-  const {
-    entries,
-    isLoading,
-    error,
-    addEntry,
-    updateEntry,
-    deleteEntry,
-    refreshEntries,
-  } = useJournalEntries();
+  const { activeDiet, isLoading } = useUserDiet();
+  const [selectedMealKey, setSelectedMealKey] = useState<string | null>(null);
 
-  const [isFormVisible, setIsFormVisible] = useState(false);
-  const [editingEntry, setEditingEntry] = useState<MealEntry | null>(null);
+  const mealTypes = activeDiet
+    ? AVAILABLE_MEAL_TYPES.filter((m) =>
+      activeDiet.meal_structure.includes(m.key)
+    )
+    : [];
 
-  const handleAddNew = () => {
-    setEditingEntry(null);
-    setIsFormVisible(true);
-  };
-
-  const handleEdit = (entry: MealEntry) => {
-    setEditingEntry(entry);
-    setIsFormVisible(true);
-  };
-
-  const handleCloseForm = () => {
-    setIsFormVisible(false);
-    setEditingEntry(null);
-  };
-
-  const handleSubmit = async (entryData: Omit<MealEntry, 'id' | 'createdAt'>) => {
-    if (editingEntry) {
-      await updateEntry({
-        ...editingEntry,
-        ...entryData,
-      });
-    } else {
-      await addEntry(entryData);
-    }
-    handleCloseForm();
-  };
-
-  const handleDelete = async (id: string) => {
-    await deleteEntry(id);
-  };
+  const selectedMeal = AVAILABLE_MEAL_TYPES.find((m) => m.key === selectedMealKey) ?? null;
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Journal',
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
 
-      <ParallaxScrollView
-        headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}
-      >
-        <View style={styles.titleContainer}>
-          <ThemedText type="title">Meal Journal 📝</ThemedText>
-          <ThemedText type="default" style={styles.subtitle}>
-            {entries.length} {entries.length === 1 ? 'entry' : 'entries'} recorded
-          </ThemedText>
+      <ThemedView style={styles.container}>
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: isDark ? '#2D2D3D' : '#EBEBEB' }]}>
+          <ThemedText style={styles.pageTitle}>Journal</ThemedText>
+          <TouchableOpacity
+            style={styles.dietSelector}
+            onPress={() => router.push('/diets')}
+            activeOpacity={0.7}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#8B5CF6" />
+            ) : (
+              <>
+                <ThemedText style={styles.dietName} numberOfLines={1}>
+                  {activeDiet?.diet_name ?? 'No diet selected'}
+                </ThemedText>
+                <Ionicons
+                  name="chevron-down"
+                  size={16}
+                  color="#8B5CF6"
+                  style={{ marginLeft: 4 }}
+                />
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* Error Banner */}
-        {error && (
-          <View style={styles.errorBanner}>
-            <ThemedText style={styles.errorText}>{error}</ThemedText>
-            <TouchableOpacity onPress={refreshEntries}>
-              <ThemedText style={styles.retryText}>Retry</ThemedText>
-            </TouchableOpacity>
-          </View>
-        )}
+        {/* Meal Cards */}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {!activeDiet && !isLoading && (
+            <View style={styles.emptyState}>
+              <Ionicons name="restaurant-outline" size={48} color="#8B5CF6" style={{ opacity: 0.5 }} />
+              <ThemedText style={styles.emptyTitle}>No diet selected</ThemedText>
+              <ThemedText style={styles.emptySubtitle}>
+                Tap the diet name above to choose or create a diet plan.
+              </ThemedText>
+            </View>
+          )}
 
-        {/* Entry List */}
-        <MealEntryList
-          entries={entries}
-          isLoading={isLoading}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onRefresh={refreshEntries}
-        />
-      </ParallaxScrollView>
+          {mealTypes.map((meal) => (
+            <MealCard
+              key={meal.key}
+              mealKey={meal.key}
+              label={meal.label}
+              icon={meal.icon}
+              onPress={() => setSelectedMealKey(meal.key)}
+            />
+          ))}
+        </ScrollView>
+      </ThemedView>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={handleAddNew}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={32} color="#fff" />
-      </TouchableOpacity>
-
-      {/* Form Modal */}
+      {/* Meal Journal Sheet */}
       <Modal
-        visible={isFormVisible}
+        visible={selectedMealKey !== null}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={handleCloseForm}
+        onRequestClose={() => setSelectedMealKey(null)}
       >
-        <ThemedView style={styles.modalContainer}>
-          <MealEntryForm
-            onSubmit={handleSubmit}
-            onCancel={handleCloseForm}
-            initialEntry={editingEntry || undefined}
+        {selectedMeal && (
+          <MealJournalSheet
+            mealKey={selectedMeal.key}
+            mealLabel={selectedMeal.label}
+            mealIcon={selectedMeal.icon}
+            onClose={() => setSelectedMealKey(null)}
           />
-        </ThemedView>
+        )}
       </Modal>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  headerButton: {
-    marginRight: 16,
-  },
-  titleContainer: {
-    marginBottom: 20,
-  },
-  subtitle: {
-    opacity: 0.7,
-    marginTop: 4,
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'rgba(198, 40, 40, 0.2)',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  errorText: {
-    color: '#ef5350',
-    fontSize: 14,
-  },
-  retryText: {
-    color: '#8B5CF6',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  modalContainer: {
+  container: {
     flex: 1,
   },
-  fab: {
-    position: 'absolute',
-    bottom: 32,
-    right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#8B5CF6',
-    justifyContent: 'center',
+  header: {
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 4,
+  },
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  dietSelector: {
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 8,
+    alignSelf: 'flex-start',
+  },
+  dietName: {
+    fontSize: 15,
+    color: '#8B5CF6',
+    fontWeight: '500',
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 12,
+    paddingBottom: 40,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 80,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    opacity: 0.7,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    opacity: 0.5,
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
 });
