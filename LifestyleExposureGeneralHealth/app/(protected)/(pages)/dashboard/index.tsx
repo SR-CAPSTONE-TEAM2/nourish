@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'expo-router'
 import { UserProfile, Meal, Metric } from '@/types/types'
 import { LineChart, BarChart } from 'react-native-chart-kit'
+import AddMealModal from '../../(modals)/addmealmodal'
 
 const SCREEN_WIDTH = Dimensions.get('window').width
 const CHART_WIDTH = SCREEN_WIDTH - 80 // accounts for padding
@@ -111,6 +112,7 @@ export default function Dashboard() {
   const [metrics, setMetrics] = useState<Metric[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories')
+  const [showAddMeal, setShowAddMeal] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -201,6 +203,16 @@ export default function Dashboard() {
       {/* Top Nav */}
       <View style={styles.nav}>
         <Text style={styles.navLogo}>Nourish</Text>
+
+        {/* Center: big + button */}
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => setShowAddMeal(true)}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.addBtnText}>+</Text>
+        </TouchableOpacity>
+
         <View style={styles.navRight}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{profile?.first_name?.[0] ?? '?'}</Text>
@@ -210,7 +222,6 @@ export default function Dashboard() {
           </TouchableOpacity>
         </View>
       </View>
-
       {/* Main */}
       <View style={styles.main}>
 
@@ -249,6 +260,15 @@ export default function Dashboard() {
                 </Text>
               </TouchableOpacity>
             ))}
+            <AddMealModal
+              visible={showAddMeal}
+              onClose={() => setShowAddMeal(false)}
+              onSubmit={({ meal_type, ingredients }) => {
+                // TODO: write to Supabase in the next step
+                console.log('Meal to log:', meal_type, ingredients)
+                setShowAddMeal(false)
+              }}
+            />
           </ScrollView>
 
           {/* Calories Chart */}
@@ -618,5 +638,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#f97316',
+  },
+  addBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: '#f97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#f97316',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  addBtnText: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: '300',
+    lineHeight: 34,
+    marginTop: -2,
   },
 })
