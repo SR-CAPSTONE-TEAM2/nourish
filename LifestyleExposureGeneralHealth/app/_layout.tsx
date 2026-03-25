@@ -2,10 +2,11 @@ import { useFonts, Ubuntu_400Regular, Ubuntu_700Bold } from '@expo-google-fonts/
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
-import { DarkTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { ThemeProvider } from '@/context/theme-context';
 
 // Custom dark navigation theme
 const AppDarkTheme = {
@@ -40,14 +41,14 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <ThemeProvider value={AppDarkTheme}>
+    <ThemeProvider>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(pages)" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(protected)" options={{ headerShown: false }} />
         {/*Add modals as we go */}
         <Stack.Screen name="(modals)/food-modal" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
-      <StatusBar style="light" />
     </ThemeProvider>
   );
 }

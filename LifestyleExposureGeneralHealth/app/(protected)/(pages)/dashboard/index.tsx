@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router'
 import { UserProfile, Meal, Metric } from '@/types/types'
 import { LineChart, BarChart } from 'react-native-chart-kit'
 import AddMealModal from '../../(modals)/addmealmodal'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const CHART_WIDTH = SCREEN_WIDTH - 80
@@ -22,20 +23,20 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 // ─── Palette ──────────────────────────────────────────────────────────────────
 const C = {
-  bg:        '#0d0d0d',
-  surface:   '#141414',
+  bg: '#0d0d0d',
+  surface: '#141414',
   surfaceHi: '#1a1a1a',
-  border:    '#222',
-  borderHi:  '#2e2e2e',
+  border: '#222',
+  borderHi: '#2e2e2e',
   textPrime: '#f2f2f2',
-  textSub:   '#5a5a5a',
-  textMid:   '#888',
-  orange:    '#f97316',
-  blue:      '#60a5fa',
-  green:     '#34d399',
-  purple:    '#a78bfa',
-  rose:      '#fb7185',
-  amber:     '#fbbf24',
+  textSub: '#5a5a5a',
+  textMid: '#888',
+  orange: '#f97316',
+  blue: '#60a5fa',
+  green: '#34d399',
+  purple: '#a78bfa',
+  rose: '#fb7185',
+  amber: '#fbbf24',
 }
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
@@ -85,7 +86,7 @@ function getTotalCaloriesToday(meals: Meal[]): number {
 
 const baseChartConfig = {
   backgroundGradientFrom: C.surfaceHi,
-  backgroundGradientTo:   C.surfaceHi,
+  backgroundGradientTo: C.surfaceHi,
   decimalPlaces: 0,
   color: (opacity = 1) => `rgba(242, 242, 242, ${opacity})`,
   labelColor: (opacity = 1) => `rgba(90, 90, 90, ${opacity})`,
@@ -129,9 +130,9 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
 
 const MEAL_COLORS: Record<string, string> = {
   breakfast: C.amber,
-  lunch:     C.green,
-  dinner:    C.blue,
-  snack:     C.orange,
+  lunch: C.green,
+  dinner: C.blue,
+  snack: C.orange,
 }
 
 function MealRow({ meal }: { meal: Meal }) {
@@ -185,11 +186,12 @@ function TabButton({
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
+  const insets = useSafeAreaInsets()
   const router = useRouter()
-  const [profile,     setProfile]     = useState<UserProfile | null>(null)
-  const [metrics,     setMetrics]     = useState<Metric[]>([])
-  const [loading,     setLoading]     = useState(true)
-  const [activeTab,   setActiveTab]   = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories')
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [metrics, setMetrics] = useState<Metric[]>([])
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories')
   const [showAddMeal, setShowAddMeal] = useState(false)
   const [userId, setUserId] = useState<string | null>(null);
   const [meals, setMeals] = useState<any[]>([]);
@@ -230,8 +232,8 @@ export default function Dashboard() {
         supabase.from('user_metrics').select('*').eq('user_id', user.id).order('observation_date', { ascending: true }),
       ])
 
-      if (prof)       setProfile(prof)
-      if (mealData)   setMeals(mealData)
+      if (prof) setProfile(prof)
+      if (mealData) setMeals(mealData)
       if (metricData) setMetrics(metricData)
       setLoading(false)
     }
@@ -254,7 +256,7 @@ export default function Dashboard() {
 
   // ── Chart data
   const calorieData = groupMealsByMonth(meals)
-  const weightData  = groupMetricsByMonth(metrics, 'weight')
+  const weightData = groupMetricsByMonth(metrics, 'weight')
   const proteinData = groupMetricsByMonth(metrics, 'protein')
 
   const toChartData = (
@@ -298,9 +300,9 @@ export default function Dashboard() {
 
   const tabs = [
     { key: 'calories' as const, label: 'Calories', color: C.orange },
-    { key: 'weight'   as const, label: 'Weight',   color: C.blue   },
-    { key: 'protein'  as const, label: 'Protein',  color: C.green  },
-    { key: 'macros'   as const, label: 'Macros',   color: C.purple },
+    { key: 'weight' as const, label: 'Weight', color: C.blue },
+    { key: 'protein' as const, label: 'Protein', color: C.green },
+    { key: 'macros' as const, label: 'Macros', color: C.purple },
   ]
 
   const recentMeals = [...meals]
@@ -315,7 +317,7 @@ export default function Dashboard() {
   })()
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <View style={{ paddingTop: insets.top, flex: 1, backgroundColor: C.bg, }}>
 
       {/* ── Nav Bar ─────────────────────────────────────────────────────── */}
       <View style={styles.nav}>
@@ -372,10 +374,10 @@ export default function Dashboard() {
           contentContainerStyle={styles.statsScrollContent}
         >
           <StatCard label="Today's Calories" value={String(getTotalCaloriesToday(meals))} unit="kcal" color={C.orange} icon="🔥" />
-          <StatCard label="Current Weight"   value={getLatestMetric(metrics, 'weight')}   unit="lbs" color={C.blue}   icon="⚖️" />
-          <StatCard label="Latest Protein"   value={getLatestMetric(metrics, 'protein')}  unit="g"   color={C.green}  icon="💪" />
-          <StatCard label="Latest Carbs"     value={getLatestMetric(metrics, 'carbs')}    unit="g"   color={C.purple} icon="🌾" />
-          <StatCard label="Total Meals"      value={String(meals.length)}                            color={C.rose}   icon="🍽️" />
+          <StatCard label="Current Weight" value={getLatestMetric(metrics, 'weight')} unit="lbs" color={C.blue} icon="⚖️" />
+          <StatCard label="Latest Protein" value={getLatestMetric(metrics, 'protein')} unit="g" color={C.green} icon="💪" />
+          <StatCard label="Latest Carbs" value={getLatestMetric(metrics, 'carbs')} unit="g" color={C.purple} icon="🌾" />
+          <StatCard label="Total Meals" value={String(meals.length)} color={C.rose} icon="🍽️" />
         </ScrollView>
 
         {/* ── Chart Panel ────────────────────────────────────────────────── */}
@@ -401,9 +403,9 @@ export default function Dashboard() {
 
           <Text style={styles.chartSubtitle}>
             {activeTab === 'calories' && 'Total calories from meals — monthly overview'}
-            {activeTab === 'weight'   && 'Average body weight per month'}
-            {activeTab === 'protein'  && 'Average daily protein intake per month'}
-            {activeTab === 'macros'   && 'Protein · Carbs · Sugar — monthly averages'}
+            {activeTab === 'weight' && 'Average body weight per month'}
+            {activeTab === 'protein' && 'Average daily protein intake per month'}
+            {activeTab === 'macros' && 'Protein · Carbs · Sugar — monthly averages'}
           </Text>
 
           {activeTab === 'calories' && (
@@ -470,9 +472,9 @@ export default function Dashboard() {
               />
               <View style={styles.legendRow}>
                 {([
-                  [C.green,  'Protein'],
+                  [C.green, 'Protein'],
                   [C.purple, 'Carbs'],
-                  [C.rose,   'Sugar'],
+                  [C.rose, 'Sugar'],
                 ] as [string, string][]).map(([color, label]) => (
                   <View key={label} style={styles.legendItem}>
                     <View style={[styles.legendDot, { backgroundColor: color }]} />

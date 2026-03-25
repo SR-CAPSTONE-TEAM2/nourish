@@ -12,6 +12,14 @@ export default function JournalLayout() {
         }}
       />
       {/* Other screens */}
+      <Stack.Screen
+        name="diets"
+        options={{
+          headerShown: false,
+          freezeOnBlur: true,
+          title: 'Diets',
+        }}
+      />
     </Stack>
   );
 }

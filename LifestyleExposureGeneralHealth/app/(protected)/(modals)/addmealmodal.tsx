@@ -46,15 +46,15 @@ interface Props {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20   // results per page
-const DEBOUNCE  = 350  // ms
+const DEBOUNCE = 350  // ms
 
 const MEAL_TYPES: MealType[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
 
 const MEAL_COLORS: Record<MealType, string> = {
   Breakfast: '#fbbf24',
-  Lunch:     '#34d399',
-  Dinner:    '#60a5fa',
-  Snack:     '#f97316',
+  Lunch: '#34d399',
+  Dinner: '#60a5fa',
+  Snack: '#f97316',
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -141,34 +141,34 @@ async function searchFoods(
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
-  const [step,       setStep]       = useState<'type' | 'ingredients'>('type')
-  const [mealType,   setMealType]   = useState<MealType | null>(null)
-  const [query,      setQuery]      = useState('')
-  const [results,    setResults]    = useState<FoodResult[]>([])
-  const [page,       setPage]       = useState(0)
-  const [hasMore,    setHasMore]    = useState(false)
-  const [searching,  setSearching]  = useState(false)
-  const [loadingMore,setLoadingMore]= useState(false)
-  const [selected,   setSelected]   = useState<SelectedIngredient[]>([])
+  const [step, setStep] = useState<'type' | 'ingredients'>('type')
+  const [mealType, setMealType] = useState<MealType | null>(null)
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<FoodResult[]>([])
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [selected, setSelected] = useState<SelectedIngredient[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const [submitError,setSubmitError]= useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
-  const slideAnim   = useRef(new Animated.Value(600)).current
+  const slideAnim = useRef(new Animated.Value(600)).current
   const overlayAnim = useRef(new Animated.Value(0)).current
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const lastQuery   = useRef('')
+  const lastQuery = useRef('')
 
   // ── Sheet animation
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(slideAnim,  { toValue: 0,   useNativeDriver: true, damping: 22, stiffness: 200 }),
-        Animated.timing(overlayAnim,{ toValue: 1,   duration: 250, useNativeDriver: true }),
+        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }),
+        Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
       ]).start()
     } else {
       Animated.parallel([
-        Animated.timing(slideAnim,  { toValue: 600, duration: 280, useNativeDriver: true }),
-        Animated.timing(overlayAnim,{ toValue: 0,   duration: 220, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 600, duration: 280, useNativeDriver: true }),
+        Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
       ]).start(() => resetState())
     }
   }, [visible])
@@ -267,13 +267,13 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
       const { data: mealRow, error: mealError } = await supabase
         .from('user_meals')
         .insert({
-          user_id:        user.id,
-          meal_type:      mealType,
-          meal_date:      new Date().toISOString(),
+          user_id: user.id,
+          meal_type: mealType,
+          meal_date: new Date().toISOString(),
           total_calories: totalCalories,
-          total_protein:  totalProtein,
-          total_carbs:    totalCarbs,
-          total_fat:      totalFat,
+          total_protein: totalProtein,
+          total_carbs: totalCarbs,
+          total_fat: totalFat,
         })
         .select('meal_id')
         .single()
@@ -282,16 +282,16 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
       // 2. Insert each ingredient as a meal_item row
       const items = selected.map(s => ({
-        meal_id:         mealRow.meal_id,
-        fdc_id:          s.fdc_id,
+        meal_id: mealRow.meal_id,
+        fdc_id: s.fdc_id,
         ingredient_name: s.ingredient_name,
-        quantity:        s.qty,
-        portion_amount:  s.amount,
-        portion_unit:    s.unit,
-        calories:        scaledNutrient(s.calories, s.qty, s.amount),
-        protein:         scaledNutrient(s.protein,  s.qty, s.amount),
-        carbs:           scaledNutrient(s.carbs,    s.qty, s.amount),
-        fat:             scaledNutrient(s.fat,       s.qty, s.amount),
+        quantity: s.qty,
+        portion_amount: s.amount,
+        portion_unit: s.unit,
+        calories: scaledNutrient(s.calories, s.qty, s.amount),
+        protein: scaledNutrient(s.protein, s.qty, s.amount),
+        carbs: scaledNutrient(s.carbs, s.qty, s.amount),
+        fat: scaledNutrient(s.fat, s.qty, s.amount),
       }))
 
       const { error: itemsError } = await supabase.from('meal_items').insert(items)
@@ -410,10 +410,10 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                 {searching
                   ? <ActivityIndicator size="small" color="#555" />
                   : query.length > 0 && (
-                      <TouchableOpacity onPress={() => { setQuery(''); setResults([]) }}>
-                        <Text style={styles.clearBtn}>✕</Text>
-                      </TouchableOpacity>
-                    )
+                    <TouchableOpacity onPress={() => { setQuery(''); setResults([]) }}>
+                      <Text style={styles.clearBtn}>✕</Text>
+                    </TouchableOpacity>
+                  )
                 }
               </View>
 
@@ -579,6 +579,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: Platform.OS === 'ios' ? 40 : 28,
     maxHeight: '92%',
+    minHeight: '50%',
     borderTopWidth: 1,
     borderTopColor: '#252525',
   },

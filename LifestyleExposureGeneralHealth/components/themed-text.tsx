@@ -1,6 +1,5 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
-
-import { useThemeColor } from '@/hooks/use-theme-color';
+// components/themed-text.tsx
+import { Text, TextProps, StyleSheet, useColorScheme } from 'react-native';
 
 export type ThemedTextProps = TextProps & {
   lightColor?: string;
@@ -10,12 +9,15 @@ export type ThemedTextProps = TextProps & {
 
 export function ThemedText({
   style,
-  lightColor,
-  darkColor,
+  lightColor = '#000000',
+  darkColor = '#FFFFFF',
   type = 'default',
   ...rest
 }: ThemedTextProps) {
-  const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
+  const colorScheme = useColorScheme();
+  // Default to 'light' if colorScheme is null
+  const isDark = colorScheme === 'dark';
+  const color = isDark ? darkColor : lightColor;
 
   return (
     <Text
@@ -32,7 +34,6 @@ export function ThemedText({
     />
   );
 }
-
 const styles = StyleSheet.create({
   default: {
     fontFamily: 'Ubuntu_400Regular',
@@ -60,3 +61,4 @@ const styles = StyleSheet.create({
     color: '#8B5CF6',
   },
 });
+

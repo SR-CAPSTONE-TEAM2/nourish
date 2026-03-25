@@ -24,7 +24,7 @@ export default function ProfileScreen() {
     <>
       <Stack.Screen
         options={{
-          headerShown: true,
+          headerShown: false,
           headerRight: () => (
             <TouchableOpacity
               onPress={() => router.push('/(protected)/(pages)/profile/settings')}
