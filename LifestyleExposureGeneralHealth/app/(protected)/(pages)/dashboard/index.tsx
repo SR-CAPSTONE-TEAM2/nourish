@@ -1,12 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
   Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
   ActivityIndicator,
+  Platform,
 } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'expo-router'
@@ -14,16 +15,35 @@ import { UserProfile, Meal, Metric } from '@/types/types'
 import { LineChart, BarChart } from 'react-native-chart-kit'
 import AddMealModal from '../../(modals)/addmealmodal'
 
-const SCREEN_WIDTH = Dimensions.get('window').width
-const CHART_WIDTH = SCREEN_WIDTH - 80 // accounts for padding
+const { width: SCREEN_WIDTH } = Dimensions.get('window')
+const CHART_WIDTH = SCREEN_WIDTH - 80
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// ─── Palette ──────────────────────────────────────────────────────────────────
+const C = {
+  bg:        '#0d0d0d',
+  surface:   '#141414',
+  surfaceHi: '#1a1a1a',
+  border:    '#222',
+  borderHi:  '#2e2e2e',
+  textPrime: '#f2f2f2',
+  textSub:   '#5a5a5a',
+  textMid:   '#888',
+  orange:    '#f97316',
+  blue:      '#60a5fa',
+  green:     '#34d399',
+  purple:    '#a78bfa',
+  rose:      '#fb7185',
+  amber:     '#fbbf24',
+}
+
+// ─── Data helpers ─────────────────────────────────────────────────────────────
 
 function groupMealsByMonth(meals: Meal[]) {
   const map: Record<string, number> = {}
   meals.forEach(m => {
-    const d = new Date(m.meal_date)
-    const key = MONTHS[d.getMonth()]
+    const key = MONTHS[new Date(m.meal_date).getMonth()]
     map[key] = (map[key] ?? 0) + (m.total_calories ?? 0)
   })
   return MONTHS.map(month => ({ month, calories: Math.round(map[month] ?? 0) }))
@@ -32,8 +52,7 @@ function groupMealsByMonth(meals: Meal[]) {
 function groupMetricsByMonth(metrics: Metric[], field: keyof Metric) {
   const map: Record<string, number[]> = {}
   metrics.forEach(m => {
-    const d = new Date(m.observation_date)
-    const key = MONTHS[d.getMonth()]
+    const key = MONTHS[new Date(m.observation_date).getMonth()]
     if (!map[key]) map[key] = []
     const val = m[field]
     if (typeof val === 'number') map[key].push(val)
@@ -65,23 +84,28 @@ function getTotalCaloriesToday(meals: Meal[]): number {
 // ─── Chart config ─────────────────────────────────────────────────────────────
 
 const baseChartConfig = {
-  backgroundGradientFrom: '#1e1e1e',
-  backgroundGradientTo: '#1e1e1e',
+  backgroundGradientFrom: C.surfaceHi,
+  backgroundGradientTo:   C.surfaceHi,
   decimalPlaces: 0,
-  color: (opacity = 1) => `rgba(240, 240, 240, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(85, 85, 85, ${opacity})`,
-  propsForBackgroundLines: { stroke: '#222' },
-  propsForDots: { r: '3' },
+  color: (opacity = 1) => `rgba(242, 242, 242, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(90, 90, 90, ${opacity})`,
+  propsForBackgroundLines: { stroke: '#1f1f1f' },
+  propsForDots: { r: '3', strokeWidth: '0' },
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
-function StatCard({ label, value, unit, color }: {
-  label: string; value: string; unit?: string; color: string
+function StatCard({
+  label, value, unit, color, icon,
+}: {
+  label: string; value: string; unit?: string; color: string; icon: string
 }) {
   return (
-    <View style={styles.statCard}>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={[styles.statCard, { borderTopColor: color }]}>
+      <View style={styles.statCardTop}>
+        <Text style={styles.statIcon}>{icon}</Text>
+        <Text style={styles.statLabel}>{label}</Text>
+      </View>
       <View style={styles.statValueRow}>
         <Text style={[styles.statValue, { color }]}>{value}</Text>
         {unit && <Text style={styles.statUnit}>{unit}</Text>}
@@ -90,25 +114,110 @@ function StatCard({ label, value, unit, color }: {
   )
 }
 
-// ─── Chart Card ───────────────────────────────────────────────────────────────
+// ─── Section Header ───────────────────────────────────────────────────────────
 
-function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <View style={styles.chartCard}>
-      <Text style={styles.chartTitle}>{title}</Text>
-      {children}
-    </div>
+    <View style={styles.sectionHeader}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
+    </View>
   )
 }
 
+// ─── Meal Row ─────────────────────────────────────────────────────────────────
+
+const MEAL_COLORS: Record<string, string> = {
+  breakfast: C.amber,
+  lunch:     C.green,
+  dinner:    C.blue,
+  snack:     C.orange,
+}
+
+function MealRow({ meal }: { meal: Meal }) {
+  const type = (meal.meal_type ?? 'meal').toLowerCase()
+  const accent = MEAL_COLORS[type] ?? C.textMid
+  return (
+    <View style={styles.mealRow}>
+      <View style={[styles.mealDot, { backgroundColor: accent }]} />
+      <View style={styles.mealInfo}>
+        <Text style={styles.mealType}>{meal.meal_type ?? 'Meal'}</Text>
+        <Text style={styles.mealDate}>
+          {new Date(meal.meal_date).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric',
+          })}
+        </Text>
+      </View>
+      <View style={styles.mealRight}>
+        {meal.meal_rating != null && (
+          <Text style={styles.mealRating}>
+            {'★'.repeat(meal.meal_rating)}{'☆'.repeat(5 - meal.meal_rating)}
+          </Text>
+        )}
+        <View style={[styles.calorieBadge, { backgroundColor: accent + '18', borderColor: accent + '44' }]}>
+          <Text style={[styles.calorieBadgeText, { color: accent }]}>
+            {meal.total_calories ? `${meal.total_calories} kcal` : '—'}
+          </Text>
+        </View>
+      </View>
+    </View>
+  )
+}
+
+// ─── Tab Button ───────────────────────────────────────────────────────────────
+
+function TabButton({
+  label, active, color, onPress,
+}: {
+  label: string; active: boolean; color: string; onPress: () => void
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[styles.tab, active && { backgroundColor: color + '18', borderColor: color + '55' }]}
+      activeOpacity={0.7}
+    >
+      <Text style={[styles.tabText, active && { color }]}>{label}</Text>
+    </TouchableOpacity>
+  )
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+
 export default function Dashboard() {
   const router = useRouter()
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [meals, setMeals] = useState<Meal[]>([])
-  const [metrics, setMetrics] = useState<Metric[]>([])
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories')
+  const [profile,     setProfile]     = useState<UserProfile | null>(null)
+  const [metrics,     setMetrics]     = useState<Metric[]>([])
+  const [loading,     setLoading]     = useState(true)
+  const [activeTab,   setActiveTab]   = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories')
   const [showAddMeal, setShowAddMeal] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null);
+  const [meals, setMeals] = useState<any[]>([]);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (!error && data.user) {
+        setUserId(data.user.id);
+      }
+    };
+
+    getUser();
+  }, []);
+
+  const refreshMeals = async () => {
+    if (!userId) return;
+
+    const { data, error } = await supabase
+      .from('user_meals')
+      .select('*')
+      .eq('user_id', userId)
+      .order('meal_date', { ascending: true });
+
+    if (!error && data) {
+      setMeals(data);
+    }
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -121,8 +230,8 @@ export default function Dashboard() {
         supabase.from('user_metrics').select('*').eq('user_id', user.id).order('observation_date', { ascending: true }),
       ])
 
-      if (prof) setProfile(prof)
-      if (mealData) setMeals(mealData)
+      if (prof)       setProfile(prof)
+      if (mealData)   setMeals(mealData)
       if (metricData) setMetrics(metricData)
       setLoading(false)
     }
@@ -137,17 +246,21 @@ export default function Dashboard() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#e0e0e0" />
+        <ActivityIndicator size="large" color={C.orange} />
+        <Text style={styles.loadingText}>Loading your dashboard…</Text>
       </View>
     )
   }
 
+  // ── Chart data
   const calorieData = groupMealsByMonth(meals)
-  const weightData = groupMetricsByMonth(metrics, 'weight')
+  const weightData  = groupMetricsByMonth(metrics, 'weight')
   const proteinData = groupMetricsByMonth(metrics, 'protein')
 
-  // react-native-chart-kit expects { labels, datasets } shape
-  const toChartData = (data: { month: string; calories?: number; value?: number }[], key: 'calories' | 'value') => ({
+  const toChartData = (
+    data: { month: string; calories?: number; value?: number }[],
+    key: 'calories' | 'value',
+  ) => ({
     labels: data.map(d => d.month),
     datasets: [{ data: data.map(d => (d as any)[key] ?? 0) }],
   })
@@ -157,108 +270,67 @@ export default function Dashboard() {
     datasets: [
       {
         data: MONTHS.map(month => {
-          const monthMetrics = metrics.filter(m => MONTHS[new Date(m.observation_date).getMonth()] === month)
-          const vals = monthMetrics.map(m => m.protein).filter(Boolean) as number[]
-          return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
+          const mm = metrics.filter(m => MONTHS[new Date(m.observation_date).getMonth()] === month)
+          const v = mm.map(m => m.protein).filter(Boolean) as number[]
+          return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0
         }),
-        color: () => '#34d399',
-        strokeWidth: 2,
+        color: () => C.green, strokeWidth: 2,
       },
       {
         data: MONTHS.map(month => {
-          const monthMetrics = metrics.filter(m => MONTHS[new Date(m.observation_date).getMonth()] === month)
-          const vals = monthMetrics.map(m => m.carbs).filter(Boolean) as number[]
-          return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
+          const mm = metrics.filter(m => MONTHS[new Date(m.observation_date).getMonth()] === month)
+          const v = mm.map(m => m.carbs).filter(Boolean) as number[]
+          return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0
         }),
-        color: () => '#a78bfa',
-        strokeWidth: 2,
+        color: () => C.purple, strokeWidth: 2,
       },
       {
         data: MONTHS.map(month => {
-          const monthMetrics = metrics.filter(m => MONTHS[new Date(m.observation_date).getMonth()] === month)
-          const vals = monthMetrics.map(m => m.sugar).filter(Boolean) as number[]
-          return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0
+          const mm = metrics.filter(m => MONTHS[new Date(m.observation_date).getMonth()] === month)
+          const v = mm.map(m => m.sugar).filter(Boolean) as number[]
+          return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0
         }),
-        color: () => '#fb7185',
-        strokeWidth: 2,
+        color: () => C.rose, strokeWidth: 2,
       },
     ],
     legend: ['Protein', 'Carbs', 'Sugar'],
   }
 
   const tabs = [
-    { key: 'calories' as const, label: 'Calories' },
-    { key: 'weight' as const, label: 'Weight' },
-    { key: 'protein' as const, label: 'Protein' },
-    { key: 'macros' as const, label: 'Macros' },
+    { key: 'calories' as const, label: 'Calories', color: C.orange },
+    { key: 'weight'   as const, label: 'Weight',   color: C.blue   },
+    { key: 'protein'  as const, label: 'Protein',  color: C.green  },
+    { key: 'macros'   as const, label: 'Macros',   color: C.purple },
   ]
 
+  const recentMeals = [...meals]
+    .sort((a, b) => new Date(b.meal_date).getTime() - new Date(a.meal_date).getTime())
+    .slice(0, 5)
+
+  const greeting = (() => {
+    const h = new Date().getHours()
+    if (h < 12) return 'Good morning'
+    if (h < 18) return 'Good afternoon'
+    return 'Good evening'
+  })()
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
 
-        {/* Top Nav */}
-        <nav style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '20px 36px',
-          borderBottom: '1px solid #222',
-          background: '#141414',
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-        }}>
-          <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: '20px', fontWeight: '700', color: '#f0f0f0' }}>
-            Nourish
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button onClick={() => router.push('/(protected)/(pages)/search')} style={{
-              background: '#2a2a2a', border: '1px solid #333',
-              borderRadius: '10px', padding: '7px 14px',
-              color: '#bbb', fontSize: '13px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '6px',
-              transition: 'border-color 0.2s, color 0.2s',
-            }}
-              onMouseEnter={e => { (e.target as HTMLButtonElement).style.color = '#e0e0e0'; (e.target as HTMLButtonElement).style.borderColor = '#555' }}
-              onMouseLeave={e => { (e.target as HTMLButtonElement).style.color = '#bbb'; (e.target as HTMLButtonElement).style.borderColor = '#333' }}
-            >
-              🔍 Search
-            </button>
-            <div style={{
-              width: '36px', height: '36px', borderRadius: '50%',
-              background: '#2a2a2a', border: '1px solid #333',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '14px', fontWeight: '600', color: '#bbb',
-            }}>
-              {profile?.first_name?.[0] ?? '?'}
-            </div>
-            <button onClick={signOut} style={{
-              background: 'transparent', border: '1px solid #333',
-              borderRadius: '10px', padding: '7px 14px',
-              color: '#888', fontSize: '13px', cursor: 'pointer',
-              transition: 'border-color 0.2s, color 0.2s',
-            }}
-              onMouseEnter={e => { (e.target as HTMLButtonElement).style.color = '#e0e0e0'; (e.target as HTMLButtonElement).style.borderColor = '#555' }}
-              onMouseLeave={e => { (e.target as HTMLButtonElement).style.color = '#888'; (e.target as HTMLButtonElement).style.borderColor = '#333' }}
-            >
-              Sign out
-            </button>
-          </div>
-        </nav>
-
-        {/* Main Content */}
-        <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
-      {/* Top Nav */}
+      {/* ── Nav Bar ─────────────────────────────────────────────────────── */}
       <View style={styles.nav}>
-        <Text style={styles.navLogo}>Nourish</Text>
+        <View style={styles.navLogoWrap}>
+          <View style={styles.navLogoDot} />
+          <Text style={styles.navLogo}>nourish</Text>
+        </View>
 
-        {/* Center: big + button */}
         <TouchableOpacity
           style={styles.addBtn}
           onPress={() => setShowAddMeal(true)}
-          activeOpacity={0.8}
+          activeOpacity={0.82}
         >
-          <Text style={styles.addBtnText}>+</Text>
+          <Text style={styles.addBtnPlus}>+</Text>
+          <Text style={styles.addBtnLabel}>Log Meal</Text>
         </TouchableOpacity>
 
         <View style={styles.navRight}>
@@ -266,198 +338,203 @@ export default function Dashboard() {
             <Text style={styles.avatarText}>{profile?.first_name?.[0] ?? '?'}</Text>
           </View>
           <TouchableOpacity onPress={signOut} style={styles.signOutBtn}>
-            <Text style={styles.signOutText}>Sign out</Text>
+            <Text style={styles.signOutText}>Out</Text>
           </TouchableOpacity>
         </View>
       </View>
-      {/* Main */}
-      <View style={styles.main}>
+
+      {/* ── Scrollable content ──────────────────────────────────────────── */}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
 
         {/* Greeting */}
-        <View style={styles.greeting}>
-          <Text style={styles.greetingTitle}>
-            Hi, {profile?.first_name ?? profile?.username ?? 'there'} 👋
-          </Text>
-          <Text style={styles.greetingDate}>
+        <View style={styles.greetingBlock}>
+          <Text style={styles.greetingSub}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+          </Text>
+          <Text style={styles.greetingTitle}>
+            {greeting},{' '}
+            <Text style={styles.greetingName}>
+              {profile?.first_name ?? profile?.username ?? 'there'}
+            </Text>{' '}
+            👋
           </Text>
         </View>
 
-        {/* Stat Cards */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statsScroll}>
-          <StatCard label="Today's Calories" value={String(getTotalCaloriesToday(meals))} unit="kcal" color="#f97316" />
-          <StatCard label="Current Weight" value={getLatestMetric(metrics, 'weight')} unit="lbs" color="#60a5fa" />
-          <StatCard label="Latest Protein" value={getLatestMetric(metrics, 'protein')} unit="g" color="#34d399" />
-          <StatCard label="Latest Carbs" value={getLatestMetric(metrics, 'carbs')} unit="g" color="#a78bfa" />
-          <StatCard label="Total Meals" value={String(meals.length)} color="#fb7185" />
+        {/* ── Stat Cards ─────────────────────────────────────────────────── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.statsScroll}
+          contentContainerStyle={styles.statsScrollContent}
+        >
+          <StatCard label="Today's Calories" value={String(getTotalCaloriesToday(meals))} unit="kcal" color={C.orange} icon="🔥" />
+          <StatCard label="Current Weight"   value={getLatestMetric(metrics, 'weight')}   unit="lbs" color={C.blue}   icon="⚖️" />
+          <StatCard label="Latest Protein"   value={getLatestMetric(metrics, 'protein')}  unit="g"   color={C.green}  icon="💪" />
+          <StatCard label="Latest Carbs"     value={getLatestMetric(metrics, 'carbs')}    unit="g"   color={C.purple} icon="🌾" />
+          <StatCard label="Total Meals"      value={String(meals.length)}                            color={C.rose}   icon="🍽️" />
         </ScrollView>
 
-        {/* Chart Section */}
-        <View style={styles.chartSection}>
+        {/* ── Chart Panel ────────────────────────────────────────────────── */}
+        <View style={styles.panel}>
 
-          {/* Tab Bar */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
-            {tabs.map(tab => (
-              <TouchableOpacity
-                key={tab.key}
-                onPress={() => setActiveTab(tab.key)}
-                style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-              >
-                <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabRow}
+          >
+            {tabs.map(t => (
+              <TabButton
+                key={t.key}
+                label={t.label}
+                active={activeTab === t.key}
+                color={t.color}
+                onPress={() => setActiveTab(t.key)}
+              />
             ))}
-            <AddMealModal
-              visible={showAddMeal}
-              onClose={() => setShowAddMeal(false)}
-              onSubmit={({ meal_type, ingredients }) => {
-                // TODO: write to Supabase in the next step
-                console.log('Meal to log:', meal_type, ingredients)
-                setShowAddMeal(false)
-              }}
-            />
           </ScrollView>
 
-          {/* Calories Chart */}
+          <View style={styles.panelDivider} />
+
+          <Text style={styles.chartSubtitle}>
+            {activeTab === 'calories' && 'Total calories from meals — monthly overview'}
+            {activeTab === 'weight'   && 'Average body weight per month'}
+            {activeTab === 'protein'  && 'Average daily protein intake per month'}
+            {activeTab === 'macros'   && 'Protein · Carbs · Sugar — monthly averages'}
+          </Text>
+
           {activeTab === 'calories' && (
-            <View>
-              <Text style={styles.chartSubtitle}>Total calories from meals — monthly overview</Text>
-              <LineChart
-                data={toChartData(calorieData, 'calories')}
-                width={CHART_WIDTH}
-                height={220}
-                chartConfig={{
-                  ...baseChartConfig,
-                  color: (opacity = 1) => `rgba(249, 115, 22, ${opacity})`,
-                  fillShadowGradientFrom: '#f97316',
-                  fillShadowGradientTo: '#141414',
-                  fillShadowGradientFromOpacity: 0.3,
-                  fillShadowGradientToOpacity: 0,
-                }}
-                bezier
-                style={styles.chart}
-              />
-            </View>
+            <LineChart
+              data={toChartData(calorieData, 'calories')}
+              width={CHART_WIDTH}
+              height={200}
+              chartConfig={{
+                ...baseChartConfig,
+                color: (o = 1) => `rgba(249,115,22,${o})`,
+                fillShadowGradientFrom: C.orange,
+                fillShadowGradientTo: C.surfaceHi,
+                fillShadowGradientFromOpacity: 0.28,
+                fillShadowGradientToOpacity: 0,
+              }}
+              bezier
+              style={styles.chart}
+            />
           )}
 
-          {/* Weight Chart */}
           {activeTab === 'weight' && (
-            <View>
-              <Text style={styles.chartSubtitle}>Average weight per month</Text>
-              <LineChart
-                data={toChartData(weightData, 'value')}
-                width={CHART_WIDTH}
-                height={220}
-                chartConfig={{
-                  ...baseChartConfig,
-                  color: (opacity = 1) => `rgba(96, 165, 250, ${opacity})`,
-                  fillShadowGradientFrom: '#60a5fa',
-                  fillShadowGradientTo: '#141414',
-                  fillShadowGradientFromOpacity: 0.3,
-                  fillShadowGradientToOpacity: 0,
-                }}
-                bezier
-                style={styles.chart}
-              />
-            </View>
+            <LineChart
+              data={toChartData(weightData, 'value')}
+              width={CHART_WIDTH}
+              height={200}
+              chartConfig={{
+                ...baseChartConfig,
+                color: (o = 1) => `rgba(96,165,250,${o})`,
+                fillShadowGradientFrom: C.blue,
+                fillShadowGradientTo: C.surfaceHi,
+                fillShadowGradientFromOpacity: 0.28,
+                fillShadowGradientToOpacity: 0,
+              }}
+              bezier
+              style={styles.chart}
+            />
           )}
 
-          {/* Protein Chart */}
           {activeTab === 'protein' && (
-            <View>
-              <Text style={styles.chartSubtitle}>Average daily protein intake per month</Text>
-              <BarChart
-                data={toChartData(proteinData, 'value')}
-                width={CHART_WIDTH}
-                height={220}
-                yAxisLabel=""
-                yAxisSuffix="g"
-                chartConfig={{ ...baseChartConfig, color: (opacity = 1) => `rgba(52, 211, 153, ${opacity})` }}
-                style={styles.chart}
-              />
-            </View>
+            <BarChart
+              data={toChartData(proteinData, 'value')}
+              width={CHART_WIDTH}
+              height={200}
+              yAxisLabel=""
+              yAxisSuffix="g"
+              chartConfig={{
+                ...baseChartConfig,
+                color: (o = 1) => `rgba(52,211,153,${o})`,
+              }}
+              style={styles.chart}
+            />
           )}
 
-          {/* Macros Chart */}
           {activeTab === 'macros' && (
-            <View>
-              <Text style={styles.chartSubtitle}>Protein vs Carbs vs Sugar — monthly averages</Text>
+            <>
               <LineChart
                 data={macrosData}
                 width={CHART_WIDTH}
-                height={220}
+                height={200}
                 chartConfig={baseChartConfig}
                 bezier
-                style={styles.chart}
                 withDots={false}
+                style={styles.chart}
               />
-              {/* Legend */}
-              <View style={styles.legend}>
-                {[['#34d399', 'Protein'], ['#a78bfa', 'Carbs'], ['#fb7185', 'Sugar']].map(([color, label]) => (
+              <View style={styles.legendRow}>
+                {([
+                  [C.green,  'Protein'],
+                  [C.purple, 'Carbs'],
+                  [C.rose,   'Sugar'],
+                ] as [string, string][]).map(([color, label]) => (
                   <View key={label} style={styles.legendItem}>
                     <View style={[styles.legendDot, { backgroundColor: color }]} />
                     <Text style={styles.legendText}>{label}</Text>
                   </View>
                 ))}
               </View>
+            </>
+          )}
+        </View>
+
+        {/* ── Recent Meals ───────────────────────────────────────────────── */}
+        <View style={styles.panel}>
+          <SectionHeader
+            title="Recent Meals"
+            subtitle={`${recentMeals.length} of ${meals.length} logged`}
+          />
+          <View style={styles.panelDivider} />
+          {recentMeals.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateIcon}>🍽️</Text>
+              <Text style={styles.emptyStateText}>No meals logged yet.</Text>
+              <Text style={styles.emptyStateHint}>Tap + Log Meal to get started.</Text>
+            </View>
+          ) : (
+            <View style={styles.mealList}>
+              {recentMeals.map(meal => (
+                <MealRow key={meal.meal_id} meal={meal} />
+              ))}
             </View>
           )}
         </View>
 
-        {/* Recent Meals */}
-        <ChartCard title="RECENT MEALS">
-          {meals.length === 0 ? (
-            <Text style={styles.emptyText}>No meals logged yet.</Text>
-          ) : (
-            [...meals]
-              .sort((a, b) => new Date(b.meal_date).getTime() - new Date(a.meal_date).getTime())
-              .slice(0, 5)
-              .map(meal => (
-                <View key={meal.meal_id} style={styles.mealRow}>
-                  <View>
-                    <Text style={styles.mealType}>{meal.meal_type ?? 'Meal'}</Text>
-                    <Text style={styles.mealDate}>
-                      {new Date(meal.meal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </Text>
-                  </View>
-                  <View style={styles.mealRight}>
-                    {meal.meal_rating != null && (
-                      <Text style={styles.mealRating}>
-                        {'★'.repeat(meal.meal_rating)}{'☆'.repeat(5 - meal.meal_rating)}
-                      </Text>
-                    )}
-                    <View style={styles.calorieBadge}>
-                      <Text style={styles.calorieBadgeText}>
-                        {meal.total_calories ? `${meal.total_calories} kcal` : '—'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              ))
-          )}
-        </ChartCard>
+      </ScrollView>
 
-      </View>
-    </ScrollView>
+      {/* ── Modal ───────────────────────────────────────────────────────── */}
+      <AddMealModal
+        visible={showAddMeal}
+        onClose={() => setShowAddMeal(false)}
+        onSuccess={() => {
+          refreshMeals();
+        }}
+      />
+
+    </View>
   )
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#141414',
-  },
-  contentContainer: {
-    paddingBottom: 60,
-  },
+
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#141414',
+    backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 14,
+  },
+  loadingText: {
+    color: C.textSub,
+    fontSize: 14,
   },
 
   // Nav
@@ -465,90 +542,157 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 56,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === 'ios' ? 56 : 36,
+    paddingBottom: 14,
+    backgroundColor: C.bg,
     borderBottomWidth: 1,
-    borderBottomColor: '#222',
-    backgroundColor: '#141414',
+    borderBottomColor: C.border,
   },
-  navLogo: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#f0f0f0',
-  },
-  navRight: {
+  navLogoWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 7,
+    flex: 1,
+  },
+  navLogoDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: C.orange,
+  },
+  navLogo: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: C.textPrime,
+    letterSpacing: -0.5,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: C.orange,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    shadowColor: C.orange,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  addBtnPlus: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '300',
+    lineHeight: 22,
+    marginTop: -1,
+  },
+  addBtnLabel: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  navRight: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#2a2a2a',
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: C.surfaceHi,
     borderWidth: 1,
-    borderColor: '#333',
+    borderColor: C.borderHi,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#bbb',
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.textMid,
   },
   signOutBtn: {
     borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
+    borderColor: C.border,
+    borderRadius: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
   },
   signOutText: {
-    color: '#888',
-    fontSize: 13,
+    color: C.textSub,
+    fontSize: 12,
+    fontWeight: '500',
   },
 
-  // Main
-  main: {
-    padding: 24,
-    gap: 28,
+  // Scroll
+  scroll: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 60,
+    gap: 24,
   },
 
   // Greeting
-  greeting: {
+  greetingBlock: {
     gap: 4,
+    paddingTop: 8,
+  },
+  greetingSub: {
+    fontSize: 12,
+    color: C.textSub,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   greetingTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
-    color: '#f0f0f0',
+    color: C.textPrime,
+    lineHeight: 34,
   },
-  greetingDate: {
-    fontSize: 14,
-    color: '#555',
+  greetingName: {
+    color: C.orange,
   },
 
   // Stat cards
   statsScroll: {
-    marginHorizontal: -24,
-    paddingHorizontal: 24,
+    marginHorizontal: -20,
+  },
+  statsScrollContent: {
+    paddingHorizontal: 20,
+    gap: 12,
   },
   statCard: {
-    backgroundColor: '#1e1e1e',
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 20,
-    padding: 20,
-    marginRight: 12,
-    minWidth: 140,
+    borderColor: C.border,
+    borderTopWidth: 2,
+    borderRadius: 18,
+    padding: 18,
+    minWidth: 138,
+    gap: 10,
+  },
+  statCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
+  statIcon: {
+    fontSize: 14,
+  },
   statLabel: {
-    fontSize: 11,
-    color: '#666',
+    fontSize: 10,
+    color: C.textSub,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
+    flex: 1,
   },
   statValueRow: {
     flexDirection: 'row',
@@ -556,61 +700,81 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statValue: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '700',
+    lineHeight: 32,
   },
   statUnit: {
-    fontSize: 13,
-    color: '#555',
+    fontSize: 12,
+    color: C.textSub,
     marginBottom: 3,
   },
 
-  // Chart section
-  chartSection: {
-    backgroundColor: '#1e1e1e',
+  // Panel
+  panel: {
+    backgroundColor: C.surface,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 24,
-    padding: 20,
-    gap: 20,
+    borderColor: C.border,
+    borderRadius: 22,
+    padding: 18,
+    gap: 14,
   },
-  tabBar: {
+  panelDivider: {
+    height: 1,
+    backgroundColor: C.border,
+    marginHorizontal: -18,
+  },
+
+  // Section header
+  sectionHeader: {
     flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.textPrime,
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    color: C.textSub,
+  },
+
+  // Tabs
+  tabRow: {
+    gap: 8,
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#2a2a2a',
-    marginRight: 8,
-  },
-  tabActive: {
-    backgroundColor: '#f0f0f0',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: C.surfaceHi,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   tabText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#777',
+    fontWeight: '600',
+    color: C.textSub,
   },
-  tabTextActive: {
-    color: '#141414',
-  },
+
+  // Chart
   chartSubtitle: {
-    fontSize: 13,
-    color: '#555',
-    marginBottom: 12,
+    fontSize: 12,
+    color: C.textSub,
+    marginBottom: 4,
   },
   chart: {
     borderRadius: 12,
-    marginLeft: -12,
+    marginLeft: -10,
   },
 
   // Macros legend
-  legend: {
+  legendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 20,
-    marginTop: 12,
   },
   legendItem: {
     flexDirection: 'row',
@@ -618,93 +782,85 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   legendDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
   legendText: {
     fontSize: 12,
-    color: '#666',
+    color: C.textMid,
   },
 
-  // Chart card
-  chartCard: {
-    backgroundColor: '#1e1e1e',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 20,
-    padding: 20,
-    gap: 12,
+  // Meals list
+  mealList: {
+    gap: 8,
   },
-  chartTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#aaa',
-    letterSpacing: 1,
-  },
-  emptyText: {
-    color: '#444',
-    fontSize: 14,
-  },
-
-  // Meal rows
   mealRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#242424',
+    gap: 12,
+    backgroundColor: C.surfaceHi,
     borderRadius: 14,
-    padding: 14,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: C.borderHi,
+  },
+  mealDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    flexShrink: 0,
+  },
+  mealInfo: {
+    flex: 1,
+    gap: 2,
   },
   mealType: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#e0e0e0',
+    fontWeight: '600',
+    color: C.textPrime,
     textTransform: 'capitalize',
   },
   mealDate: {
-    fontSize: 12,
-    color: '#555',
-    marginTop: 2,
+    fontSize: 11,
+    color: C.textSub,
   },
   mealRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   mealRating: {
-    fontSize: 12,
-    color: '#f59e0b',
+    fontSize: 11,
+    color: C.amber,
   },
   calorieBadge: {
-    backgroundColor: '#2a1a0a',
+    borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 4,
   },
   calorieBadgeText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#f97316',
+    fontSize: 12,
+    fontWeight: '700',
   },
-  addBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#f97316',
+
+  // Empty state
+  emptyState: {
     alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#f97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
+    paddingVertical: 28,
+    gap: 6,
   },
-  addBtnText: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: '300',
-    lineHeight: 34,
-    marginTop: -2,
+  emptyStateIcon: {
+    fontSize: 32,
+  },
+  emptyStateText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.textMid,
+  },
+  emptyStateHint: {
+    fontSize: 13,
+    color: C.textSub,
   },
 })

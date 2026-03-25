@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  ActivityIndicator,
 } from 'react-native'
 import { supabase } from '@/lib/supabase'
 
@@ -26,26 +27,40 @@ interface FoodResult {
   protein: number | null
   carbs: number | null
   fat: number | null
-  // joined from food_portions (first available portion)
   amount: number | null
   unit: string | null
   modifier: string | null
 }
 
 interface SelectedIngredient extends FoodResult {
-  qty: number // multiplier on the portion amount
+  qty: number
 }
 
 interface Props {
   visible: boolean
   onClose: () => void
-  onSubmit: (meal: { meal_type: MealType; ingredients: SelectedIngredient[] }) => void
+  /** Called after a successful DB insert — parent can refresh its meal list */
+  onSuccess?: () => void
+}
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const PAGE_SIZE = 20   // results per page
+const DEBOUNCE  = 350  // ms
+
+const MEAL_TYPES: MealType[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
+
+const MEAL_COLORS: Record<MealType, string> = {
+  Breakfast: '#fbbf24',
+  Lunch:     '#34d399',
+  Dinner:    '#60a5fa',
+  Snack:     '#f97316',
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatPortion(item: FoodResult) {
-  if (!item.amount && !item.unit) return '100 g'
+  if (!item.amount && !item.unit) return 'per 100 g'
   const parts: string[] = []
   if (item.amount) parts.push(String(item.amount))
   if (item.unit && item.unit !== 'undetermined') parts.push(item.unit)
@@ -53,47 +68,107 @@ function formatPortion(item: FoodResult) {
   return parts.join(' ')
 }
 
+/** Scale a per-100g nutrient value by portion size × qty */
 function scaledNutrient(val: number | null, qty: number, amount: number | null) {
-  if (val == null) return null
-  // USDA nutrients are per 100 g. If a portion amount exists we scale by (amount * qty) / 100.
+  if (val == null) return 0
   const scale = amount ? (amount * qty) / 100 : qty
   return Math.round(val * scale)
 }
 
-const MEAL_TYPES: MealType[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
+// ─── Search logic ─────────────────────────────────────────────────────────────
+//
+// Strategy (in order):
+//  1. Full phrase match  — ILIKE '%chicken breast%'
+//  2. If < PAGE_SIZE results, also run a word-split OR search so that
+//     e.g. "grilled salmon" surfaces results containing "salmon" or "grilled"
+//  3. "Load more" appends the next page of the phrase match
 
-const MEAL_COLORS: Record<MealType, string> = {
-  Breakfast: '#fbbf24',
-  Lunch: '#34d399',
-  Dinner: '#60a5fa',
-  Snack: '#f97316',
+async function searchFoods(
+  term: string,
+  page: number,
+): Promise<{ results: FoodResult[]; hasMore: boolean }> {
+  const offset = page * PAGE_SIZE
+
+  const { data: phraseData, error } = await supabase.rpc('search_food_with_portions', {
+    search_term: term,
+    result_limit: PAGE_SIZE,
+    result_offset: offset,
+  })
+
+  if (error) return { results: [], hasMore: false }
+
+  const phraseResults: FoodResult[] = phraseData ?? []
+
+  // If first page has fewer than PAGE_SIZE hits, augment with a word-split OR search
+  if (page === 0 && phraseResults.length < PAGE_SIZE) {
+    const words = term.trim().split(/\s+/).filter(w => w.length > 2)
+    if (words.length > 1) {
+      // Run individual word searches and merge, de-duplicating by fdc_id
+      const wordSearches = await Promise.all(
+        words.map(word =>
+          supabase.rpc('search_food_with_portions', {
+            search_term: word,
+            result_limit: PAGE_SIZE,
+            result_offset: 0,
+          })
+        )
+      )
+      const seen = new Set(phraseResults.map(r => r.fdc_id))
+      const extra: FoodResult[] = []
+      for (const { data } of wordSearches) {
+        if (!data) continue
+        for (const item of data as FoodResult[]) {
+          if (!seen.has(item.fdc_id)) {
+            seen.add(item.fdc_id)
+            extra.push(item)
+          }
+        }
+      }
+      // Phrase matches first, word matches after
+      return {
+        results: [...phraseResults, ...extra].slice(0, PAGE_SIZE * 2),
+        hasMore: false, // mixed results don't support clean pagination
+      }
+    }
+  }
+
+  return {
+    results: phraseResults,
+    hasMore: phraseResults.length === PAGE_SIZE,
+  }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function AddMealModal({ visible, onClose, onSubmit }: Props) {
-  const [step, setStep] = useState<'type' | 'ingredients'>('type')
-  const [mealType, setMealType] = useState<MealType | null>(null)
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<FoodResult[]>([])
-  const [searching, setSearching] = useState(false)
-  const [selected, setSelected] = useState<SelectedIngredient[]>([])
+export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
+  const [step,       setStep]       = useState<'type' | 'ingredients'>('type')
+  const [mealType,   setMealType]   = useState<MealType | null>(null)
+  const [query,      setQuery]      = useState('')
+  const [results,    setResults]    = useState<FoodResult[]>([])
+  const [page,       setPage]       = useState(0)
+  const [hasMore,    setHasMore]    = useState(false)
+  const [searching,  setSearching]  = useState(false)
+  const [loadingMore,setLoadingMore]= useState(false)
+  const [selected,   setSelected]   = useState<SelectedIngredient[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError,setSubmitError]= useState<string | null>(null)
 
-  const slideAnim = useRef(new Animated.Value(600)).current
+  const slideAnim   = useRef(new Animated.Value(600)).current
   const overlayAnim = useRef(new Animated.Value(0)).current
-  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastQuery   = useRef('')
 
-  // ── Animate in/out
+  // ── Sheet animation
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, damping: 22, stiffness: 200 }),
-        Animated.timing(overlayAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+        Animated.spring(slideAnim,  { toValue: 0,   useNativeDriver: true, damping: 22, stiffness: 200 }),
+        Animated.timing(overlayAnim,{ toValue: 1,   duration: 250, useNativeDriver: true }),
       ]).start()
     } else {
       Animated.parallel([
-        Animated.timing(slideAnim, { toValue: 600, duration: 280, useNativeDriver: true }),
-        Animated.timing(overlayAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(slideAnim,  { toValue: 600, duration: 280, useNativeDriver: true }),
+        Animated.timing(overlayAnim,{ toValue: 0,   duration: 220, useNativeDriver: true }),
       ]).start(() => resetState())
     }
   }, [visible])
@@ -103,33 +178,56 @@ export default function AddMealModal({ visible, onClose, onSubmit }: Props) {
     setMealType(null)
     setQuery('')
     setResults([])
+    setPage(0)
+    setHasMore(false)
     setSelected([])
+    setSubmitError(null)
+    lastQuery.current = ''
   }
 
-  // ── Debounced search against Supabase
+  // ── Debounced search (page 0)
   useEffect(() => {
-    if (searchTimeout.current) clearTimeout(searchTimeout.current)
-    if (!query.trim()) { setResults([]); return }
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (!query.trim()) { setResults([]); setHasMore(false); return }
 
-    searchTimeout.current = setTimeout(async () => {
+    searchTimer.current = setTimeout(async () => {
+      lastQuery.current = query.trim()
       setSearching(true)
-      // Join food_nutrients with food_portions to get one representative portion per food
-      const { data, error } = await supabase.rpc('search_food_with_portions', { search_term: query.trim() })
-      if (!error && data) setResults(data as FoodResult[])
+      setPage(0)
+      const { results: data, hasMore: more } = await searchFoods(query.trim(), 0)
+      // Guard against stale responses
+      if (lastQuery.current !== query.trim()) return
+      setResults(data)
+      setHasMore(more)
       setSearching(false)
-    }, 350)
+    }, DEBOUNCE)
   }, [query])
 
+  // ── Load more (next page)
+  async function loadMore() {
+    if (!hasMore || loadingMore) return
+    setLoadingMore(true)
+    const nextPage = page + 1
+    const { results: more, hasMore: stillMore } = await searchFoods(lastQuery.current, nextPage)
+    setResults(prev => {
+      const seen = new Set(prev.map(r => r.fdc_id))
+      return [...prev, ...more.filter(r => !seen.has(r.fdc_id))]
+    })
+    setPage(nextPage)
+    setHasMore(stillMore)
+    setLoadingMore(false)
+  }
+
+  // ── Ingredient management
   function addIngredient(item: FoodResult) {
     setSelected(prev => {
       const exists = prev.find(s => s.fdc_id === item.fdc_id)
-      if (exists) {
-        return prev.map(s => s.fdc_id === item.fdc_id ? { ...s, qty: s.qty + 1 } : s)
-      }
+      if (exists) return prev.map(s => s.fdc_id === item.fdc_id ? { ...s, qty: s.qty + 1 } : s)
       return [...prev, { ...item, qty: 1 }]
     })
     setQuery('')
     setResults([])
+    setHasMore(false)
   }
 
   function removeIngredient(fdc_id: number) {
@@ -138,31 +236,87 @@ export default function AddMealModal({ visible, onClose, onSubmit }: Props) {
 
   function changeQty(fdc_id: number, delta: number) {
     setSelected(prev =>
-      prev
-        .map(s => s.fdc_id === fdc_id ? { ...s, qty: Math.max(1, s.qty + delta) } : s)
+      prev.map(s => s.fdc_id === fdc_id ? { ...s, qty: Math.max(1, s.qty + delta) } : s)
     )
   }
 
-  const totalCalories = selected.reduce((sum, s) => {
-    return sum + (scaledNutrient(s.calories, s.qty, s.amount) ?? 0)
-  }, 0)
+  const totalCalories = selected.reduce(
+    (sum, s) => sum + scaledNutrient(s.calories, s.qty, s.amount), 0
+  )
+  const totalProtein = selected.reduce(
+    (sum, s) => sum + scaledNutrient(s.protein, s.qty, s.amount), 0
+  )
+  const totalCarbs = selected.reduce(
+    (sum, s) => sum + scaledNutrient(s.carbs, s.qty, s.amount), 0
+  )
+  const totalFat = selected.reduce(
+    (sum, s) => sum + scaledNutrient(s.fat, s.qty, s.amount), 0
+  )
 
-  function handleSubmit() {
-    if (!mealType || selected.length === 0) return
-    onSubmit({ meal_type: mealType, ingredients: selected })
-    onClose()
+  // ── Submit to Supabase
+  async function handleSubmit() {
+    if (!mealType || selected.length === 0 || submitting) return
+    setSubmitting(true)
+    setSubmitError(null)
+
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) throw new Error('Not authenticated')
+
+      // 1. Insert the meal header row
+      const { data: mealRow, error: mealError } = await supabase
+        .from('user_meals')
+        .insert({
+          user_id:        user.id,
+          meal_type:      mealType,
+          meal_date:      new Date().toISOString(),
+          total_calories: totalCalories,
+          total_protein:  totalProtein,
+          total_carbs:    totalCarbs,
+          total_fat:      totalFat,
+        })
+        .select('meal_id')
+        .single()
+
+      if (mealError || !mealRow) throw new Error(mealError?.message ?? 'Failed to create meal')
+
+      // 2. Insert each ingredient as a meal_item row
+      const items = selected.map(s => ({
+        meal_id:         mealRow.meal_id,
+        fdc_id:          s.fdc_id,
+        ingredient_name: s.ingredient_name,
+        quantity:        s.qty,
+        portion_amount:  s.amount,
+        portion_unit:    s.unit,
+        calories:        scaledNutrient(s.calories, s.qty, s.amount),
+        protein:         scaledNutrient(s.protein,  s.qty, s.amount),
+        carbs:           scaledNutrient(s.carbs,    s.qty, s.amount),
+        fat:             scaledNutrient(s.fat,       s.qty, s.amount),
+      }))
+
+      const { error: itemsError } = await supabase.from('meal_items').insert(items)
+      if (itemsError) throw new Error(itemsError.message)
+
+      // Success
+      onSuccess?.()
+      onClose()
+    } catch (err: any) {
+      setSubmitError(err.message ?? 'Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const accentColor = mealType ? MEAL_COLORS[mealType] : '#f97316'
 
+  // ── Render
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
-      {/* Overlay */}
+      {/* Dim overlay */}
       <TouchableWithoutFeedback onPress={onClose}>
         <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} />
       </TouchableWithoutFeedback>
 
-      {/* Sheet */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.kvWrapper}
@@ -170,71 +324,79 @@ export default function AddMealModal({ visible, onClose, onSubmit }: Props) {
       >
         <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
 
-          {/* Handle */}
+          {/* Handle bar */}
           <View style={styles.handle} />
 
           {/* Header */}
           <View style={styles.header}>
             {step === 'ingredients' && (
-              <TouchableOpacity onPress={() => setStep('type')} style={styles.backBtn}>
-                <Text style={styles.backBtnText}>←</Text>
+              <TouchableOpacity onPress={() => setStep('type')} style={styles.iconBtn}>
+                <Text style={styles.iconBtnText}>←</Text>
               </TouchableOpacity>
             )}
-            <View style={styles.headerText}>
+            <View style={styles.headerCenter}>
               <Text style={styles.headerTitle}>
-                {step === 'type' ? 'Log a meal' : `${mealType}`}
+                {step === 'type' ? 'Log a meal' : mealType!}
               </Text>
               {step === 'ingredients' && mealType && (
-                <View style={[styles.mealTypeBadge, { backgroundColor: accentColor + '22', borderColor: accentColor + '55' }]}>
-                  <Text style={[styles.mealTypeBadgeText, { color: accentColor }]}>{mealType}</Text>
+                <View style={[styles.badge, { backgroundColor: accentColor + '22', borderColor: accentColor + '55' }]}>
+                  <Text style={[styles.badgeText, { color: accentColor }]}>{mealType}</Text>
                 </View>
               )}
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <Text style={styles.closeBtnText}>✕</Text>
+            <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
+              <Text style={styles.iconBtnText}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          {/* ── STEP 1: Meal Type ── */}
+          {/* ── STEP 1: pick meal type ── */}
           {step === 'type' && (
-            <View style={styles.typeGrid}>
-              {MEAL_TYPES.map(type => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.typeCard,
-                    mealType === type && { borderColor: MEAL_COLORS[type], backgroundColor: MEAL_COLORS[type] + '18' },
-                  ]}
-                  onPress={() => setMealType(type)}
-                  activeOpacity={0.75}
-                >
-                  <Text style={styles.typeEmoji}>
-                    {type === 'Breakfast' ? '🌅' : type === 'Lunch' ? '☀️' : type === 'Dinner' ? '🌙' : '🍎'}
-                  </Text>
-                  <Text style={[styles.typeLabel, mealType === type && { color: MEAL_COLORS[type] }]}>{type}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <>
+              <View style={styles.typeGrid}>
+                {MEAL_TYPES.map(type => (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.typeCard,
+                      mealType === type && {
+                        borderColor: MEAL_COLORS[type],
+                        backgroundColor: MEAL_COLORS[type] + '18',
+                      },
+                    ]}
+                    onPress={() => setMealType(type)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={styles.typeEmoji}>
+                      {type === 'Breakfast' ? '🌅' : type === 'Lunch' ? '☀️' : type === 'Dinner' ? '🌙' : '🍎'}
+                    </Text>
+                    <Text style={[styles.typeLabel, mealType === type && { color: MEAL_COLORS[type] }]}>
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryBtn,
+                  !mealType ? styles.primaryBtnDisabled : { backgroundColor: accentColor },
+                ]}
+                onPress={() => mealType && setStep('ingredients')}
+                disabled={!mealType}
+              >
+                <Text style={[styles.primaryBtnText, !mealType && styles.primaryBtnTextDisabled]}>
+                  Continue →
+                </Text>
+              </TouchableOpacity>
+            </>
           )}
 
-          {step === 'type' && (
-            <TouchableOpacity
-              style={[styles.nextBtn, !mealType && styles.nextBtnDisabled, mealType && { backgroundColor: accentColor }]}
-              onPress={() => mealType && setStep('ingredients')}
-              disabled={!mealType}
-            >
-              <Text style={[styles.nextBtnText, !mealType && styles.nextBtnTextDisabled]}>
-                Continue →
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* ── STEP 2: Ingredients ── */}
+          {/* ── STEP 2: build ingredients ── */}
           {step === 'ingredients' && (
-            <View style={styles.ingredientsStep}>
+            <View style={styles.ingredientsWrap}>
 
-              {/* Search */}
-              <View style={[styles.searchBox, { borderColor: query ? accentColor + '88' : '#2e2e2e' }]}>
+              {/* Search box */}
+              <View style={[styles.searchBox, { borderColor: query ? accentColor + '99' : '#2e2e2e' }]}>
                 <Text style={styles.searchIcon}>🔍</Text>
                 <TextInput
                   style={styles.searchInput}
@@ -243,58 +405,94 @@ export default function AddMealModal({ visible, onClose, onSubmit }: Props) {
                   value={query}
                   onChangeText={setQuery}
                   autoCorrect={false}
+                  returnKeyType="search"
                 />
-                {searching && <Text style={styles.searchingDot}>•••</Text>}
-                {query.length > 0 && !searching && (
-                  <TouchableOpacity onPress={() => { setQuery(''); setResults([]) }}>
-                    <Text style={styles.clearBtn}>✕</Text>
-                  </TouchableOpacity>
-                )}
+                {searching
+                  ? <ActivityIndicator size="small" color="#555" />
+                  : query.length > 0 && (
+                      <TouchableOpacity onPress={() => { setQuery(''); setResults([]) }}>
+                        <Text style={styles.clearBtn}>✕</Text>
+                      </TouchableOpacity>
+                    )
+                }
               </View>
 
-              {/* Results dropdown */}
+              {/* Search results dropdown */}
               {results.length > 0 && (
                 <View style={styles.dropdown}>
                   <FlatList
-                    data={results.slice(0, 8)}
+                    data={results}
                     keyExtractor={item => String(item.fdc_id)}
                     keyboardShouldPersistTaps="always"
                     style={styles.dropdownList}
                     renderItem={({ item }) => (
-                      <TouchableOpacity style={styles.dropdownItem} onPress={() => addIngredient(item)}>
+                      <TouchableOpacity
+                        style={styles.dropdownItem}
+                        onPress={() => addIngredient(item)}
+                      >
                         <View style={styles.dropdownMain}>
-                          <Text style={styles.dropdownName} numberOfLines={1}>{item.ingredient_name}</Text>
-                          <Text style={styles.dropdownPortion}>{formatPortion(item)}</Text>
+                          <Text style={styles.dropdownName} numberOfLines={2}>
+                            {item.ingredient_name}
+                          </Text>
+                          <Text style={styles.dropdownDetail}>{formatPortion(item)}</Text>
                         </View>
-                        <View style={styles.dropdownMacros}>
-                          {item.calories != null && (
-                            <Text style={styles.dropdownCal}>{Math.round(item.calories * (item.amount ?? 100) / 100)} kcal</Text>
-                          )}
-                        </View>
+                        {item.calories != null && (
+                          <Text style={styles.dropdownCal}>
+                            {Math.round(item.calories * (item.amount ?? 100) / 100)} kcal
+                          </Text>
+                        )}
                       </TouchableOpacity>
                     )}
-                    ItemSeparatorComponent={() => <View style={styles.dropdownSep} />}
+                    ItemSeparatorComponent={() => <View style={styles.sep} />}
+                    ListFooterComponent={
+                      hasMore ? (
+                        <TouchableOpacity
+                          style={styles.loadMoreBtn}
+                          onPress={loadMore}
+                          disabled={loadingMore}
+                        >
+                          {loadingMore
+                            ? <ActivityIndicator size="small" color="#555" />
+                            : <Text style={styles.loadMoreText}>Load more results…</Text>
+                          }
+                        </TouchableOpacity>
+                      ) : results.length >= PAGE_SIZE ? (
+                        <Text style={styles.endText}>Showing all results</Text>
+                      ) : null
+                    }
                   />
                 </View>
               )}
 
+              {/* No results hint */}
+              {!searching && query.length > 0 && results.length === 0 && (
+                <Text style={styles.noResults}>No results for "{query}". Try a different term.</Text>
+              )}
+
               {/* Selected ingredients */}
-              <ScrollView style={styles.selectedList} keyboardShouldPersistTaps="always">
+              <ScrollView
+                style={styles.selectedScroll}
+                keyboardShouldPersistTaps="always"
+                showsVerticalScrollIndicator={false}
+              >
                 {selected.length === 0 ? (
-                  <Text style={styles.emptyHint}>Add ingredients above to build your meal.</Text>
+                  <Text style={styles.emptyHint}>Search above to add ingredients to your meal.</Text>
                 ) : (
                   selected.map(item => (
-                    <View key={item.fdc_id} style={styles.selectedItem}>
+                    <View key={item.fdc_id} style={styles.selectedRow}>
                       <View style={styles.selectedInfo}>
-                        <Text style={styles.selectedName} numberOfLines={2}>{item.ingredient_name}</Text>
-                        <Text style={styles.selectedPortion}>
-                          {item.qty > 1 ? `${item.qty}× ` : ''}{formatPortion(item)}
-                          {item.calories != null
-                            ? `  ·  ${scaledNutrient(item.calories, item.qty, item.amount)} kcal`
-                            : ''}
+                        <Text style={styles.selectedName} numberOfLines={2}>
+                          {item.ingredient_name}
+                        </Text>
+                        <Text style={styles.selectedDetail}>
+                          {formatPortion(item)}
+                          {'  ·  '}
+                          <Text style={{ color: '#f97316' }}>
+                            {scaledNutrient(item.calories, item.qty, item.amount)} kcal
+                          </Text>
                         </Text>
                       </View>
-                      <View style={styles.selectedControls}>
+                      <View style={styles.qtyRow}>
                         <TouchableOpacity style={styles.qtyBtn} onPress={() => changeQty(item.fdc_id, -1)}>
                           <Text style={styles.qtyBtnText}>−</Text>
                         </TouchableOpacity>
@@ -311,22 +509,49 @@ export default function AddMealModal({ visible, onClose, onSubmit }: Props) {
                 )}
               </ScrollView>
 
-              {/* Totals + Submit */}
+              {/* Macro summary + submit */}
               {selected.length > 0 && (
                 <View style={styles.footer}>
-                  <View style={styles.totals}>
-                    <Text style={styles.totalsLabel}>Total</Text>
-                    <Text style={[styles.totalsCalories, { color: accentColor }]}>{totalCalories} kcal</Text>
+                  {/* Macro pills */}
+                  <View style={styles.macroRow}>
+                    <View style={styles.macroPill}>
+                      <Text style={[styles.macroVal, { color: '#f97316' }]}>{totalCalories}</Text>
+                      <Text style={styles.macroLabel}>kcal</Text>
+                    </View>
+                    <View style={styles.macroPill}>
+                      <Text style={[styles.macroVal, { color: '#34d399' }]}>{totalProtein}g</Text>
+                      <Text style={styles.macroLabel}>protein</Text>
+                    </View>
+                    <View style={styles.macroPill}>
+                      <Text style={[styles.macroVal, { color: '#a78bfa' }]}>{totalCarbs}g</Text>
+                      <Text style={styles.macroLabel}>carbs</Text>
+                    </View>
+                    <View style={styles.macroPill}>
+                      <Text style={[styles.macroVal, { color: '#60a5fa' }]}>{totalFat}g</Text>
+                      <Text style={styles.macroLabel}>fat</Text>
+                    </View>
                   </View>
+
+                  {/* Error */}
+                  {submitError && (
+                    <Text style={styles.errorText}>{submitError}</Text>
+                  )}
+
+                  {/* Submit button */}
                   <TouchableOpacity
-                    style={[styles.submitBtn, { backgroundColor: accentColor }]}
+                    style={[styles.primaryBtn, { backgroundColor: accentColor }, submitting && { opacity: 0.6 }]}
                     onPress={handleSubmit}
+                    disabled={submitting}
                     activeOpacity={0.82}
                   >
-                    <Text style={styles.submitBtnText}>Log {mealType}</Text>
+                    {submitting
+                      ? <ActivityIndicator size="small" color="#141414" />
+                      : <Text style={styles.primaryBtnText}>Save {mealType}</Text>
+                    }
                   </TouchableOpacity>
                 </View>
               )}
+
             </View>
           )}
 
@@ -341,7 +566,7 @@ export default function AddMealModal({ visible, onClose, onSubmit }: Props) {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: 'rgba(0,0,0,0.74)',
   },
   kvWrapper: {
     flex: 1,
@@ -351,43 +576,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#181818',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
     paddingBottom: Platform.OS === 'ios' ? 40 : 28,
-    maxHeight: '90%',
+    maxHeight: '92%',
     borderTopWidth: 1,
     borderTopColor: '#252525',
   },
 
   // Handle
   handle: {
-    width: 40,
+    width: 38,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#333',
+    backgroundColor: '#303030',
     alignSelf: 'center',
     marginTop: 12,
-    marginBottom: 8,
+    marginBottom: 6,
   },
 
   // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 14,
     gap: 10,
   },
-  headerText: {
+  headerCenter: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: '700',
     color: '#f0f0f0',
   },
-  backBtn: {
+  iconBtn: {
     width: 34,
     height: 34,
     borderRadius: 10,
@@ -395,42 +620,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backBtnText: {
-    color: '#aaa',
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  closeBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#242424',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeBtnText: {
-    color: '#666',
-    fontSize: 13,
+  iconBtnText: {
+    color: '#888',
+    fontSize: 15,
     fontWeight: '600',
   },
-  mealTypeBadge: {
+  badge: {
     borderWidth: 1,
     borderRadius: 8,
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 3,
   },
-  mealTypeBadgeText: {
+  badgeText: {
     fontSize: 12,
     fontWeight: '600',
   },
 
-  // Type selection
+  // Meal type grid
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: 6,
+    marginBottom: 20,
   },
   typeCard: {
     width: '47%',
@@ -442,39 +654,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  typeEmoji: {
-    fontSize: 30,
-  },
+  typeEmoji: { fontSize: 30 },
   typeLabel: {
     fontSize: 15,
     fontWeight: '600',
     color: '#bbb',
   },
 
-  // Next button
-  nextBtn: {
+  // Primary action button
+  primaryBtn: {
     borderRadius: 16,
-    paddingVertical: 16,
+    paddingVertical: 15,
     alignItems: 'center',
-    marginTop: 4,
+    justifyContent: 'center',
+    minHeight: 50,
   },
-  nextBtnDisabled: {
-    backgroundColor: '#242424',
-  },
-  nextBtnText: {
+  primaryBtnDisabled: { backgroundColor: '#242424' },
+  primaryBtnText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#141414',
   },
-  nextBtnTextDisabled: {
-    color: '#444',
+  primaryBtnTextDisabled: { color: '#444' },
+
+  // Ingredients step wrapper
+  ingredientsWrap: {
+    flex: 1,
+    gap: 10,
   },
 
-  // Ingredients step
-  ingredientsStep: {
-    flex: 1,
-    gap: 12,
-  },
+  // Search
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -482,22 +691,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: 14,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 11,
     gap: 10,
   },
-  searchIcon: {
-    fontSize: 16,
-  },
+  searchIcon: { fontSize: 15 },
   searchInput: {
     flex: 1,
     fontSize: 15,
     color: '#e8e8e8',
     padding: 0,
-  },
-  searchingDot: {
-    color: '#555',
-    fontSize: 14,
-    letterSpacing: 2,
   },
   clearBtn: {
     color: '#555',
@@ -513,89 +715,98 @@ const styles = StyleSheet.create({
     borderColor: '#2a2a2a',
     borderRadius: 14,
     overflow: 'hidden',
-    maxHeight: 260,
-    zIndex: 10,
+    maxHeight: 300,
   },
-  dropdownList: {
-    flexGrow: 0,
-  },
+  dropdownList: { flexGrow: 0 },
   dropdownItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
     gap: 10,
   },
-  dropdownMain: {
-    flex: 1,
-    gap: 2,
-  },
+  dropdownMain: { flex: 1, gap: 2 },
   dropdownName: {
     fontSize: 14,
     fontWeight: '500',
     color: '#e0e0e0',
   },
-  dropdownPortion: {
-    fontSize: 12,
+  dropdownDetail: {
+    fontSize: 11,
     color: '#555',
-  },
-  dropdownMacros: {
-    alignItems: 'flex-end',
   },
   dropdownCal: {
     fontSize: 13,
     fontWeight: '600',
     color: '#f97316',
   },
-  dropdownSep: {
+  sep: {
     height: 1,
-    backgroundColor: '#242424',
-    marginHorizontal: 14,
+    backgroundColor: '#252525',
+    marginHorizontal: 12,
+  },
+  loadMoreBtn: {
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#252525',
+  },
+  loadMoreText: {
+    fontSize: 13,
+    color: '#555',
+    fontWeight: '500',
+  },
+  endText: {
+    fontSize: 12,
+    color: '#333',
+    textAlign: 'center',
+    paddingVertical: 10,
+  },
+  noResults: {
+    fontSize: 13,
+    color: '#444',
+    textAlign: 'center',
+    paddingVertical: 8,
   },
 
   // Selected list
-  selectedList: {
-    maxHeight: 280,
-  },
+  selectedScroll: { maxHeight: 230 },
   emptyHint: {
-    color: '#3a3a3a',
+    color: '#333',
     fontSize: 14,
     textAlign: 'center',
-    paddingVertical: 24,
+    paddingVertical: 20,
   },
-  selectedItem: {
+  selectedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#212121',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 8,
+    borderRadius: 13,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    marginBottom: 7,
     gap: 10,
     borderWidth: 1,
     borderColor: '#2a2a2a',
   },
-  selectedInfo: {
-    flex: 1,
-    gap: 3,
-  },
+  selectedInfo: { flex: 1, gap: 3 },
   selectedName: {
     fontSize: 14,
     fontWeight: '500',
     color: '#e0e0e0',
   },
-  selectedPortion: {
+  selectedDetail: {
     fontSize: 12,
     color: '#555',
   },
-  selectedControls: {
+  qtyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   qtyBtn: {
-    width: 28,
-    height: 28,
+    width: 27,
+    height: 27,
     borderRadius: 8,
     backgroundColor: '#2a2a2a',
     alignItems: 'center',
@@ -608,15 +819,15 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   qtyNum: {
-    width: 22,
+    width: 20,
     textAlign: 'center',
     color: '#e0e0e0',
     fontSize: 14,
     fontWeight: '600',
   },
   removeBtn: {
-    width: 28,
-    height: 28,
+    width: 27,
+    height: 27,
     borderRadius: 8,
     backgroundColor: '#2e1010',
     alignItems: 'center',
@@ -625,42 +836,46 @@ const styles = StyleSheet.create({
   },
   removeBtnText: {
     color: '#e05555',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
 
   // Footer
   footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+    gap: 10,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: '#232323',
-    marginTop: 4,
   },
-  totals: {
+  macroRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  macroPill: {
     flex: 1,
-    gap: 2,
+    alignItems: 'center',
+    backgroundColor: '#212121',
+    borderRadius: 10,
+    paddingVertical: 8,
+    marginHorizontal: 3,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
   },
-  totalsLabel: {
-    fontSize: 11,
-    color: '#555',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  totalsCalories: {
-    fontSize: 22,
-    fontWeight: '700',
-  },
-  submitBtn: {
-    borderRadius: 14,
-    paddingHorizontal: 22,
-    paddingVertical: 14,
-  },
-  submitBtnText: {
+  macroVal: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#141414',
+  },
+  macroLabel: {
+    fontSize: 10,
+    color: '#555',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#e05555',
+    textAlign: 'center',
+    paddingHorizontal: 4,
   },
 })
