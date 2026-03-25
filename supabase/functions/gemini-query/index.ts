@@ -13,87 +13,67 @@ console.log("Hello from Functions!")
 Deno.serve(async (req) => { //req is query from app
 
 
-  // const supabase = createClient(
-  //   Deno.env.get('EXPO_PUBLIC_SUPABASE_URL') ?? '',
-  //   Deno.env.get('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY') ?? '',
-  //   { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-  // );
+  const supabase = createClient(
+    Deno.env.get('EXPO_PUBLIC_SUPABASE_URL') ?? '',
+    Deno.env.get('EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY') ?? '',
+    { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+  );
 
-  // console.log("[DEBUG] Supabase client created")
-  const { query } = await req.json();
+  console.log("[DEBUG] Supabase client created")
+
+  // Security Check: Verify User
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    console.error("[ERROR] Unauthorized request", authError);
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const { query, nutritionData } = await req.json();
 
   console.log("[DEBUG] Query: ", query)
+  console.log("[DEBUG] Nutrition Data provided: ", !!nutritionData)
 
-  // const client = new GoogleGenAI({ apiKey: Deno.env.get("GEMINI_API_KEY") });
+  const ollama = new Ollama({ host: 'http://host.docker.internal:11434' });
 
-  // console.log("[DEBUG] Gemini client created")
+  let prompt = "";
+  if (nutritionData) {
+    prompt = `
+You are a helpful nutrition and health assistant. Here is the user's current daily nutrition totals for context:
+${JSON.stringify(nutritionData, null, 2)}
 
-  // const embedding_response = await client.models.embedContent({
-  //   model: "gemini-embedding-001",
-  //   contents: [query],
-  //   config: {
-  //     taskType: "RETRIEVAL_DOCUMENT",
-  //     outputDimensionality: 768,
-  //   }
-  // });
-
-  // const query_embedding = embedding_response.embeddings[0].values;
-
-  // console.log("[DEBUG] Query embedding created")
-
-  // const rpc_response = await supabase.rpc("match_research_sections", {
-  //   query_embedding: query_embedding,
-  //   match_threshold: 0.5,
-  //   match_count: 5,
-  // });
-
-  // console.log("[DEBUG] RPC response created")
-
-  // console.log("[DEBUG] RPC response: ", rpc_response.data)
-  // console.log("[DEBUG] Error: ", rpc_response.error)
-
-  // const context_chunks = rpc_response.data.map((item: any) => item.content);
-  // const context_text = context_chunks.join("\n\n");
-
-  // console.log("[DEBUG] Context chunks created")
-
-  // const prompt = `
-  //   You are a medical research assistant. Use the following research excerpts to answer the user's question accurately. 
-  //   If the answer isn't in the context, say you don't have enough information from the current studies.
-
-  //   CONTEXT FROM RESEARCH PAPERS:
-  //   ${context_text}
-
-  //   USER QUESTION:
-  //   ${query}
-
-  //   ANSWER:
-  //   `;
-
-  // const response = await client.models.generateContent({
-  //   model: "gemini-2.5-flash",
-  //   contents: prompt,
-  // });
-
-  // console.log("[DEBUG] Response generated")
-
-  const ollama = new Ollama({ host: 'http://100.82.27.91:11434' });
-
-  const prompt = `
-    You are a medical research assistant. Please answer the following question:
-    ${query}
+Please answer the following question from the user:
+${query}
     `;
-
+  } else {
+    prompt = `
+You are a helpful nutrition and health assistant. Please answer the following question from the user:
+${query}
+    `;
+  }
 
   const response = await ollama.chat({
     model: 'MedAIBase/MedGemma1.5:4b',
     messages: [{ role: 'user', content: prompt }],
   });
 
-  console.log(response.message.content);
+  let content = response.message.content || "";
+  let thought = "";
+
+  // Parse <think>...</think> tags if the model uses reasoning blocks
+  const thinkMatch = content.match(/<think>([\s\S]*?)<\/think>/);
+  if (thinkMatch) {
+    thought = thinkMatch[1].trim();
+    content = content.replace(/<think>[\s\S]*?<\/think>/, '').trim();
+  }
+
+  console.log("[DEBUG] Final text:", content);
 
   const data = {
-    message: response.message.content,
+    message: content,
+    thought: thought,
   }
 
   return new Response(

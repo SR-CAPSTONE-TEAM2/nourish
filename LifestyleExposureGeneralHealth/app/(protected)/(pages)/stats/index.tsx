@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { supabase } from '@/lib/supabase';
 
 import { FoodItem, MealType, Vitamins, Minerals } from '@/types/types';
 import { SAMPLE_MEALS, RECOMMENDED, RECOMMENDED_VITAMINS, RECOMMENDED_MINERALS } from '@/constants/recommended';
@@ -16,6 +17,64 @@ export default function HomeScreen() {
   const [items] = useState<FoodItem[]>(SAMPLE_MEALS);
   const [expandedMeals, setExpandedMeals] = useState<Set<MealType>>(new Set());
   const [expandedReportSections, setExpandedReportSections] = useState<Set<string>>(new Set());
+
+  // AI Q&A States
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [thought, setThought] = useState("");
+  const [isAsking, setIsAsking] = useState(false);
+
+  const handleAskAI = async () => {
+    if (!question.trim()) return;
+
+    setIsAsking(true);
+    setAnswer("");
+    setThought("");
+
+    try {
+      const nutritionData = {
+        totals,
+        percents,
+        totalVitamins,
+        vitaminPercents,
+        totalMinerals,
+        mineralPercents
+      };
+
+      // Get the current session to pass the auth token
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // Make a direct request to the local edge function, bypassing the cloud client URL
+      // so we can reach the local Tailscale network for Ollama while keeping cloud DB auth.
+      const res = await fetch('http://127.0.0.1:54321/functions/v1/gemini-query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token || ''}`
+        },
+        body: JSON.stringify({ query: question, nutritionData })
+      });
+
+      if (!res.ok) {
+        console.error("Supabase edge function error:", await res.text());
+        setAnswer("Sorry, I encountered an error connecting to the AI assistant.");
+        setThought("");
+      } else {
+        const data = await res.json();
+        setAnswer(data?.message || "No response received.");
+        if (data?.thought) {
+          setThought(data.thought);
+        }
+      }
+    } catch (err) {
+      console.error("Ask AI error:", err);
+      setAnswer("An unexpected error occurred.");
+      setThought("");
+    } finally {
+      setIsAsking(false);
+      setQuestion("");
+    }
+  };
 
   // Calculate macro totals
   const totals = useMemo(() => {
@@ -176,6 +235,50 @@ export default function HomeScreen() {
         expandedReportSections={expandedReportSections}
         onToggleSection={(section) => toggleReportSection(section, expandedReportSections, setExpandedReportSections)}
       />
+
+      {/* AI Q&A Section */}
+      <View style={styles.sectionHeaderRow}>
+        <ThemedText style={styles.sectionLabel}>ASK AI ABOUT YOUR NUTRITION</ThemedText>
+      </View>
+
+      <ThemedView style={styles.qaContainer}>
+        {thought ? (
+          <View style={styles.thoughtContainer}>
+            <ThemedText style={styles.thoughtLabel}>AI THOUGHT PROCESS</ThemedText>
+            <ThemedText style={styles.thoughtText}>{thought}</ThemedText>
+          </View>
+        ) : null}
+
+        {answer ? (
+          <View style={styles.answerContainer}>
+            <ThemedText style={styles.answerText}>{answer}</ThemedText>
+          </View>
+        ) : null}
+
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.textInput}
+            placeholder="What should I eat to hit my goals?"
+            placeholderTextColor="#6B6B8A"
+            value={question}
+            onChangeText={setQuestion}
+            onSubmitEditing={handleAskAI}
+            returnKeyType="send"
+          />
+          <TouchableOpacity
+            style={[styles.sendButton, (!question.trim() || isAsking) && styles.sendButtonDisabled]}
+            onPress={handleAskAI}
+            disabled={!question.trim() || isAsking}
+          >
+            {isAsking ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <ThemedText style={styles.sendButtonText}>Ask</ThemedText>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ThemedView>
+
     </ParallaxScrollView>
   );
 }
@@ -249,5 +352,80 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Ubuntu_700Bold',
     fontWeight: '600',
+  },
+  qaContainer: {
+    backgroundColor: '#27273C',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 32,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: '#1C1C2E',
+    color: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontFamily: 'Ubuntu_400Regular',
+    fontSize: 14,
+  },
+  sendButton: {
+    backgroundColor: '#8B5CF6',
+    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#6B6B8A',
+    opacity: 0.5,
+  },
+  sendButtonText: {
+    color: '#FFFFFF',
+    fontFamily: 'Ubuntu_700Bold',
+    fontSize: 14,
+  },
+  answerContainer: {
+    backgroundColor: 'rgba(139,92,246,0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.2)',
+  },
+  answerText: {
+    color: '#E2E8F0',
+    fontFamily: 'Ubuntu_400Regular',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  thoughtContainer: {
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  thoughtLabel: {
+    fontSize: 10,
+    letterSpacing: 1.2,
+    color: '#8B5CF6',
+    fontFamily: 'Ubuntu_700Bold',
+    marginBottom: 8,
+  },
+  thoughtText: {
+    color: '#94A3B8',
+    fontFamily: 'Ubuntu_400Regular',
+    fontSize: 12,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
 })
