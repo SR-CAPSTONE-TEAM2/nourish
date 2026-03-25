@@ -1,7 +1,26 @@
-export type MealType = 'breakfast' | 'lunch' | 'dinner' | 'snack';
+// types/journal.ts
+export type MealType =
+  | 'breakfast'
+  | 'brunch'
+  | 'morning_snack'
+  | 'lunch'
+  | 'afternoon_snack'
+  | 'dinner'
+  | 'evening_snack'
+  | 'first_meal'
+  | 'second_meal'
+  | 'third_meal'
+  | 'fourth_meal'
+  | 'pre_workout'
+  | 'post_workout';
+
+export interface MealTypeOption {
+  key: MealType;
+  label: string;
+  icon: string;
+}
 
 export type MoodRating = 1 | 2 | 3 | 4 | 5;
-
 export type PhysicalFeeling =
   | 'energized'
   | 'satisfied'
@@ -40,17 +59,15 @@ export interface JournalState {
   error: string | null;
 }
 
-
-// types/journal.ts
 export interface Diet {
   diet_id: string;
-  user_id: string | null; // null = system diet
+  user_id: string;
   diet_name: string;
-  description: string | null;
-  meal_structure: string[];
-  is_system: boolean;
+  description?: string;
+  meal_structure: MealType[];
+  is_active: boolean;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface CreateDietInput {
@@ -66,7 +83,7 @@ export interface UpdateDietInput {
 }
 
 // Available meal types for custom diet creation
-export const AVAILABLE_MEAL_TYPES = [
+export const AVAILABLE_MEAL_TYPES: MealTypeOption[] = [
   { key: 'breakfast', label: 'Breakfast', icon: 'sunny-outline' },
   { key: 'morning_snack', label: 'Morning Snack', icon: 'cafe-outline' },
   { key: 'brunch', label: 'Brunch', icon: 'partly-sunny-outline' },
@@ -77,3 +94,4 @@ export const AVAILABLE_MEAL_TYPES = [
   { key: 'pre_workout', label: 'Pre-Workout', icon: 'barbell-outline' },
   { key: 'post_workout', label: 'Post-Workout', icon: 'fitness-outline' },
 ] as const;
+

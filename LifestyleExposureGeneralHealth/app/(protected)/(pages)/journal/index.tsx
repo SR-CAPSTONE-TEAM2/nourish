@@ -44,7 +44,7 @@ export default function JournalScreen() {
           <ThemedText style={styles.pageTitle}>Journal</ThemedText>
           <TouchableOpacity
             style={styles.dietSelector}
-            onPress={() => router.push('/diets')}
+            onPress={() => router.push('/(protected)/(pages)/journal/diets')}
             activeOpacity={0.7}
           >
             {isLoading ? (

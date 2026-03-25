@@ -1,19 +1,20 @@
 // components/ui/journal/create-diet-form.tsx
-import React, { useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import {
   View,
   StyleSheet,
-  TouchableOpacity,
   TextInput,
   ScrollView,
   useColorScheme,
   Alert,
   ActivityIndicator,
+  Keyboard,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AVAILABLE_MEAL_TYPES, CreateDietInput } from '@/types/journal';
+import { AVAILABLE_MEAL_TYPES, CreateDietInput, MealType } from '@/types/journal';
 
 interface CreateDietFormProps {
   onSubmit: (diet: CreateDietInput) => Promise<void>;
@@ -33,12 +34,19 @@ export function CreateDietForm({
 
   const [dietName, setDietName] = useState(initialData?.diet_name || '');
   const [description, setDescription] = useState(initialData?.description || '');
-  const [selectedMeals, setSelectedMeals] = useState<string[]>(
-    initialData?.meal_structure || []
+  const [selectedMeals, setSelectedMeals] = useState<MealType[]>(
+    (initialData?.meal_structure as MealType[]) || []
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const toggleMeal = (mealKey: string) => {
+  // Store initial values for comparison using refs
+  const initialValuesRef = useRef({
+    dietName: initialData?.diet_name || '',
+    description: initialData?.description || '',
+    mealStructure: JSON.stringify(initialData?.meal_structure || []),
+  });
+
+  const toggleMeal = useCallback((mealKey: MealType) => {
     setSelectedMeals((prev) => {
       if (prev.includes(mealKey)) {
         return prev.filter((m) => m !== mealKey);
@@ -51,17 +59,31 @@ export function CreateDietForm({
         });
       }
     });
-  };
+  }, []);
 
-  const handleSubmit = async () => {
+  const hasUnsavedChanges = useCallback((): boolean => {
+    const initial = initialValuesRef.current;
+    const hasChanges =
+      dietName !== initial.dietName ||
+      description !== initial.description ||
+      JSON.stringify(selectedMeals) !== initial.mealStructure;
+    return hasChanges;
+  }, [dietName, description, selectedMeals]);
+
+  const handleSubmit = useCallback(async () => {
+    Keyboard.dismiss();
+
+    // Validation
     if (!dietName.trim()) {
-      Alert.alert('Error', 'Please enter a diet name');
+      Alert.alert('Validation Error', 'Please enter a diet name');
       return;
     }
+
     if (selectedMeals.length === 0) {
-      Alert.alert('Error', 'Please select at least one meal');
+      Alert.alert('Validation Error', 'Please select at least one meal');
       return;
     }
+
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -70,11 +92,55 @@ export function CreateDietForm({
         meal_structure: selectedMeals,
       });
     } catch (error) {
-      Alert.alert('Error', 'Failed to save diet. Please try again.');
+      console.log('Submit error:', error);
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [dietName, selectedMeals, description, onSubmit]);
+
+  const handleCancel = useCallback(() => {
+    // Dismiss keyboard first
+    Keyboard.dismiss();
+
+    // Use a longer timeout to ensure keyboard is fully dismissed
+    const timeoutId = setTimeout(() => {
+      if (hasUnsavedChanges()) {
+        Alert.alert(
+          'Discard Changes?',
+          'You have unsaved changes. Are you sure you want to discard them?',
+          [
+            { text: 'Keep Editing', style: 'cancel' },
+            {
+              text: 'Discard',
+              style: 'destructive',
+              onPress: onCancel,
+            },
+          ]
+        );
+      } else {
+        onCancel();
+      }
+    }, 200);
+
+    return () => clearTimeout(timeoutId);
+  }, [hasUnsavedChanges, onCancel]);
+
+  const clearAllMeals = useCallback(() => {
+    if (selectedMeals.length > 0) {
+      Alert.alert(
+        'Clear All Meals?',
+        'Are you sure you want to remove all selected meals?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Clear All',
+            style: 'destructive',
+            onPress: () => setSelectedMeals([]),
+          },
+        ]
+      );
+    }
+  }, [selectedMeals.length]);
 
   const inputStyle = [
     styles.input,
@@ -88,24 +154,46 @@ export function CreateDietForm({
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onCancel} style={styles.headerButton}>
-          <Ionicons name="close" size={24} color={isDark ? '#FFFFFF' : '#000000'} />
-        </TouchableOpacity>
+      <View
+        style={[
+          styles.header,
+          { borderBottomColor: isDark ? '#2D2D3D' : '#EBEBEB' },
+        ]}
+      >
+        <Pressable
+          onPress={handleCancel}
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed && styles.headerButtonPressed,
+          ]}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+        >
+          <Ionicons
+            name="close"
+            size={24}
+            color={isDark ? '#FFFFFF' : '#000000'}
+          />
+        </Pressable>
+
         <ThemedText style={styles.title}>
           {isEditing ? 'Edit Diet Plan' : 'Create Diet Plan'}
         </ThemedText>
-        <TouchableOpacity
+
+        <Pressable
           onPress={handleSubmit}
-          style={styles.headerButton}
           disabled={isSubmitting}
+          style={({ pressed }) => [
+            styles.headerButton,
+            pressed && !isSubmitting && styles.headerButtonPressed,
+          ]}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
           {isSubmitting ? (
             <ActivityIndicator size="small" color="#8B5CF6" />
           ) : (
             <ThemedText style={styles.saveText}>Save</ThemedText>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -113,6 +201,7 @@ export function CreateDietForm({
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
       >
         {/* Diet Name */}
         <View style={styles.inputGroup}>
@@ -125,6 +214,8 @@ export function CreateDietForm({
             placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
             maxLength={50}
             autoCapitalize="words"
+            autoFocus={!isEditing}
+            returnKeyType="next"
           />
           <ThemedText style={styles.charCount}>{dietName.length}/50</ThemedText>
         </View>
@@ -142,26 +233,38 @@ export function CreateDietForm({
             numberOfLines={3}
             maxLength={200}
             textAlignVertical="top"
+            returnKeyType="done"
+            blurOnSubmit={true}
           />
-          <ThemedText style={styles.charCount}>{description.length}/200</ThemedText>
+          <ThemedText style={styles.charCount}>
+            {description.length}/200
+          </ThemedText>
         </View>
 
         {/* Meal Selection */}
         <View style={styles.inputGroup}>
-          <ThemedText style={styles.label}>
-            Select Meals * ({selectedMeals.length} selected)
-          </ThemedText>
+          <View style={styles.labelRow}>
+            <ThemedText style={styles.label}>
+              Select Meals * ({selectedMeals.length} selected)
+            </ThemedText>
+            {selectedMeals.length > 0 && (
+              <Pressable onPress={clearAllMeals} hitSlop={8}>
+                <ThemedText style={styles.clearText}>Clear All</ThemedText>
+              </Pressable>
+            )}
+          </View>
           <ThemedText style={styles.hint}>
-            Tap to select the meals in your diet plan. They will be ordered chronologically.
+            Tap to select the meals in your diet plan. They will be ordered
+            chronologically.
           </ThemedText>
 
           <View style={styles.mealsGrid}>
             {AVAILABLE_MEAL_TYPES.map((meal) => {
               const isSelected = selectedMeals.includes(meal.key);
               return (
-                <TouchableOpacity
+                <Pressable
                   key={meal.key}
-                  style={[
+                  style={({ pressed }) => [
                     styles.mealChip,
                     {
                       backgroundColor: isSelected
@@ -174,20 +277,28 @@ export function CreateDietForm({
                         : isDark
                           ? '#3D3D4D'
                           : '#E0E0E0',
+                      opacity: pressed ? 0.7 : 1,
                     },
                   ]}
                   onPress={() => toggleMeal(meal.key)}
-                  activeOpacity={0.7}
                 >
                   <Ionicons
                     name={meal.icon as any}
                     size={16}
-                    color={isSelected ? '#FFFFFF' : isDark ? '#AAAAAA' : '#555555'}
+                    color={
+                      isSelected ? '#FFFFFF' : isDark ? '#AAAAAA' : '#555555'
+                    }
                   />
                   <ThemedText
                     style={[
                       styles.mealChipLabel,
-                      { color: isSelected ? '#FFFFFF' : isDark ? '#FFFFFF' : '#000000' },
+                      {
+                        color: isSelected
+                          ? '#FFFFFF'
+                          : isDark
+                            ? '#FFFFFF'
+                            : '#000000',
+                      },
                     ]}
                   >
                     {meal.label}
@@ -200,7 +311,7 @@ export function CreateDietForm({
                       style={styles.mealChipCheck}
                     />
                   )}
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
@@ -210,6 +321,10 @@ export function CreateDietForm({
         {selectedMeals.length > 0 && (
           <View style={styles.inputGroup}>
             <ThemedText style={styles.label}>Meal Order Preview</ThemedText>
+            <ThemedText style={styles.hint}>
+              This is how your meals will appear in your daily journal. Tap the X
+              to remove a meal.
+            </ThemedText>
             <View
               style={[
                 styles.previewContainer,
@@ -224,15 +339,72 @@ export function CreateDietForm({
                 if (!meal) return null;
                 return (
                   <View key={mealKey} style={styles.previewRow}>
-                    <ThemedText style={styles.previewIndex}>{index + 1}.</ThemedText>
-                    <Ionicons name={meal.icon as any} size={16} color="#8B5CF6" />
-                    <ThemedText style={styles.previewLabel}>{meal.label}</ThemedText>
+                    <View
+                      style={[
+                        styles.previewNumber,
+                        { backgroundColor: isDark ? '#3D3D4D' : '#D8C8F0' },
+                      ]}
+                    >
+                      <ThemedText style={styles.previewNumberText}>
+                        {index + 1}
+                      </ThemedText>
+                    </View>
+                    <Ionicons name={meal.icon as any} size={18} color="#8B5CF6" />
+                    <ThemedText style={styles.previewLabel}>
+                      {meal.label}
+                    </ThemedText>
+                    <Pressable
+                      onPress={() => toggleMeal(mealKey)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={({ pressed }) => [
+                        styles.removeButton,
+                        { opacity: pressed ? 0.5 : 1 },
+                      ]}
+                    >
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color={isDark ? '#666' : '#999'}
+                      />
+                    </Pressable>
                   </View>
                 );
               })}
             </View>
           </View>
         )}
+
+        {/* Tips Section */}
+        <View
+          style={[
+            styles.tipsContainer,
+            {
+              backgroundColor: isDark
+                ? 'rgba(139, 92, 246, 0.1)'
+                : 'rgba(139, 92, 246, 0.05)',
+              borderColor: isDark
+                ? 'rgba(139, 92, 246, 0.2)'
+                : 'rgba(139, 92, 246, 0.15)',
+            },
+          ]}
+        >
+          <View style={styles.tipsHeader}>
+            <Ionicons name="bulb-outline" size={18} color="#8B5CF6" />
+            <ThemedText style={styles.tipsTitle}>Tips</ThemedText>
+          </View>
+          <ThemedText style={styles.tipText}>
+            • Choose meal slots that match your typical eating schedule
+          </ThemedText>
+          <ThemedText style={styles.tipText}>
+            • You can always edit your diet plan later
+          </ThemedText>
+          <ThemedText style={styles.tipText}>
+            • Consider including snacks if you eat between meals
+          </ThemedText>
+        </View>
+
+        {/* Bottom Spacer */}
+        <View style={{ height: 40 }} />
       </ScrollView>
     </ThemedView>
   );
@@ -249,11 +421,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128,128,128,0.2)',
   },
   headerButton: {
     minWidth: 48,
+    minHeight: 44,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerButtonPressed: {
+    opacity: 0.5,
   },
   title: {
     fontSize: 17,
@@ -269,33 +445,43 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: 16,
-    paddingBottom: 40,
-    gap: 8,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 24,
+  },
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    marginBottom: 6,
+    marginBottom: 8,
     opacity: 0.85,
+  },
+  clearText: {
+    fontSize: 13,
+    color: '#EF4444',
+    fontWeight: '500',
   },
   hint: {
     fontSize: 12,
     opacity: 0.55,
-    marginBottom: 10,
+    marginBottom: 12,
+    lineHeight: 18,
   },
   input: {
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 12,
     fontSize: 16,
   },
   textArea: {
     minHeight: 80,
-    paddingTop: 10,
+    paddingTop: 12,
   },
   charCount: {
     fontSize: 11,
@@ -333,15 +519,50 @@ const styles = StyleSheet.create({
   previewRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    paddingVertical: 4,
   },
-  previewIndex: {
-    fontSize: 13,
-    opacity: 0.5,
-    width: 20,
+  previewNumber: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewNumberText: {
+    fontSize: 12,
+    fontWeight: '600',
+    opacity: 0.7,
   },
   previewLabel: {
+    flex: 1,
     fontSize: 14,
     fontWeight: '500',
+  },
+  removeButton: {
+    padding: 4,
+  },
+  tipsContainer: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    gap: 8,
+  },
+  tipsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  tipsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#8B5CF6',
+  },
+  tipText: {
+    fontSize: 13,
+    opacity: 0.65,
+    lineHeight: 20,
+    paddingLeft: 4,
   },
 });
