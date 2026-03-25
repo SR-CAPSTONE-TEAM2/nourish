@@ -4,41 +4,12 @@ import React, { useEffect, useState } from 'react';
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
-import { useRouter } from 'expo-router';
-import { supabase } from '../../../lib/supabase';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useUser } from '@/context/user-context';
 
 export default function TabLayout() {
-  const router = useRouter();
-
-  const [loading, setLoading] = useState(true);
-  const [session, setSession] = useState<any>(null);
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
-      setLoading(false);
-    };
-
-    checkUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { loading } = useUser();
 
   if (loading) return null;
-
-  if (!session) {
-    router.replace('/login');
-    return null;
-  }
-
   return (
     <Tabs
       screenOptions={{

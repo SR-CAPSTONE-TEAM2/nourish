@@ -26,6 +26,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [activeDiet, setActiveDiet] = useState<Diet | null>(null);
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        setUser(null);
+        setLoading(false); // redirect fires immediately, no network wait
+      }
+      // if session exists, let load() handle the full data fetch
+    });
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const { data: { user: authUser } } = await supabase.auth.getUser();

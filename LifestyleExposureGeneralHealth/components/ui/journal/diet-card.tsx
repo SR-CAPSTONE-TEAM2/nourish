@@ -2,13 +2,13 @@
 import React from 'react';
 import {
   View,
-  TouchableOpacity,
   StyleSheet,
-  useColorScheme,
+  TouchableOpacity,
+  Text,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemedText } from '@/components/themed-text';
 import { Diet, AVAILABLE_MEAL_TYPES } from '@/types/journal';
+import { useTheme } from '@/context/theme-context';
 
 interface DietCardProps {
   diet: Diet;
@@ -29,8 +29,7 @@ export function DietCard({
   onActivate,
   onDelete,
 }: DietCardProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors, isDark } = useTheme();
 
   const mealLabels = diet.meal_structure
     .map((key) => AVAILABLE_MEAL_TYPES.find((m) => m.key === key)?.label)
@@ -40,19 +39,33 @@ export function DietCard({
 
   const remainingCount = Math.max(0, diet.meal_structure.length - 3);
 
+  // Determine border color
+  const getBorderColor = () => {
+    if (isSelected) return colors.primary;
+    if (isActive) return colors.success;
+    return colors.border;
+  };
+
+  // Handle action button press with event stopping
+  const handleEditPress = () => {
+    onEdit();
+  };
+
+  const handleActivatePress = () => {
+    onActivate();
+  };
+
+  const handleDeletePress = () => {
+    onDelete();
+  };
+
   return (
     <TouchableOpacity
       style={[
         styles.card,
         {
-          backgroundColor: isDark ? '#1C1C2E' : '#FFFFFF',
-          borderColor: isSelected
-            ? '#8B5CF6'
-            : isActive
-              ? '#22C55E'
-              : isDark
-                ? '#2D2D3D'
-                : '#E5E5E7',
+          backgroundColor: colors.card,
+          borderColor: getBorderColor(),
           borderWidth: isSelected || isActive ? 2 : 1,
         },
       ]}
@@ -67,76 +80,88 @@ export function DietCard({
             {
               backgroundColor: isActive
                 ? 'rgba(34, 197, 94, 0.1)'
-                : isDark
-                  ? '#2D2D3D'
-                  : '#F0EBF8',
+                : isDark ? '#2D2D3D' : '#F0EBF8',
             },
           ]}
         >
           <Ionicons
             name={isActive ? 'checkmark-circle' : 'restaurant-outline'}
             size={24}
-            color={isActive ? '#22C55E' : '#8B5CF6'}
+            color={isActive ? colors.success : colors.primary}
           />
         </View>
 
         {/* Content */}
         <View style={styles.textContent}>
           <View style={styles.titleRow}>
-            <ThemedText style={styles.dietName} numberOfLines={1}>
+            <Text
+              style={[styles.dietName, { color: colors.text }]}
+              numberOfLines={1}
+            >
               {diet.diet_name}
-            </ThemedText>
+            </Text>
             {isActive && (
               <View style={styles.activeBadge}>
-                <ThemedText style={styles.activeBadgeText}>Active</ThemedText>
+                <Text style={styles.activeBadgeText}>Active</Text>
               </View>
             )}
           </View>
-          {diet.description && (
-            <ThemedText style={styles.description} numberOfLines={1}>
+          {diet.description ? (
+            <Text
+              style={[styles.description, { color: colors.textSecondary }]}
+              numberOfLines={1}
+            >
               {diet.description}
-            </ThemedText>
-          )}
-          <ThemedText style={styles.mealStructure} numberOfLines={1}>
+            </Text>
+          ) : null}
+          <Text
+            style={[styles.mealStructure, { color: colors.textMuted }]}
+            numberOfLines={1}
+          >
             {mealLabels || 'No meals configured'}
             {remainingCount > 0 && ` +${remainingCount} more`}
-          </ThemedText>
-          <ThemedText style={styles.mealCount}>
+          </Text>
+          <Text style={[styles.mealCount, { color: colors.textMuted }]}>
             {diet.meal_structure.length} meal
             {diet.meal_structure.length !== 1 ? 's' : ''}/day
-          </ThemedText>
+          </Text>
         </View>
 
         {/* Action Buttons - Shown when selected */}
         {isSelected ? (
           <View style={styles.actionButtons}>
+            {/* Edit Button */}
             <TouchableOpacity
               style={[
                 styles.actionButton,
                 { backgroundColor: isDark ? '#2D2D3D' : '#F5F5F7' },
               ]}
-              onPress={onEdit}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={handleEditPress}
+              activeOpacity={0.6}
             >
               <Ionicons
                 name="pencil"
                 size={18}
-                color={isDark ? '#FFFFFF' : '#333333'}
+                color={colors.icon}
               />
             </TouchableOpacity>
+
+            {/* Activate Button - Only show if not already active */}
             {!isActive && (
               <TouchableOpacity
-                style={[styles.actionButton, styles.activateButton]}
-                onPress={onActivate}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={[styles.actionButton, { backgroundColor: colors.success }]}
+                onPress={handleActivatePress}
+                activeOpacity={0.6}
               >
                 <Ionicons name="checkmark" size={18} color="#FFFFFF" />
               </TouchableOpacity>
             )}
+
+            {/* Delete Button */}
             <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={onDelete}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={[styles.actionButton, { backgroundColor: colors.danger }]}
+              onPress={handleDeletePress}
+              activeOpacity={0.6}
             >
               <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
             </TouchableOpacity>
@@ -145,7 +170,7 @@ export function DietCard({
           <Ionicons
             name="chevron-forward"
             size={20}
-            color={isDark ? '#555' : '#CCC'}
+            color={colors.textMuted}
           />
         )}
       </View>
@@ -198,16 +223,13 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 13,
-    opacity: 0.6,
   },
   mealStructure: {
     fontSize: 12,
-    opacity: 0.5,
     marginTop: 2,
   },
   mealCount: {
     fontSize: 11,
-    opacity: 0.4,
     marginTop: 2,
   },
   actionButtons: {
@@ -220,11 +242,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  activateButton: {
-    backgroundColor: '#22C55E',
-  },
-  deleteButton: {
-    backgroundColor: '#EF4444',
   },
 });

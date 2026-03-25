@@ -3,22 +3,20 @@ import React, { useState } from 'react';
 import {
   View,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
-  useColorScheme,
   ActivityIndicator,
   Alert,
+  Pressable,
+  Text,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { DietCard } from '@/components/ui/journal/diet-card';
 import { useUserDiet } from '@/hooks/useUserDiet';
+import { useTheme } from '@/context/theme-context';
 
 export default function DietsScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { colors, isDark } = useTheme();
   const router = useRouter();
 
   const {
@@ -33,7 +31,6 @@ export default function DietsScreen() {
   const [isActivating, setIsActivating] = useState(false);
 
   const handleSelectCard = (dietId: string) => {
-    // Toggle selection
     setSelectedDietId((prev) => (prev === dietId ? null : dietId));
   };
 
@@ -43,7 +40,6 @@ export default function DietsScreen() {
       const success = await selectDiet(dietId);
       if (success) {
         setSelectedDietId(null);
-        // Optionally go back to journal
         router.back();
       } else {
         Alert.alert('Error', 'Failed to activate diet. Please try again.');
@@ -72,10 +68,14 @@ export default function DietsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const success = await deleteDiet(dietId);
-            if (success) {
-              setSelectedDietId(null);
-            } else {
+            try {
+              const success = await deleteDiet(dietId);
+              if (success) {
+                setSelectedDietId(null);
+              } else {
+                Alert.alert('Error', 'Failed to delete diet. Please try again.');
+              }
+            } catch (error) {
               Alert.alert('Error', 'Failed to delete diet. Please try again.');
             }
           },
@@ -96,34 +96,40 @@ export default function DietsScreen() {
           headerShown: false,
         }}
       />
-      <ThemedView style={styles.container}>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Header */}
         <View
           style={[
             styles.header,
-            { borderBottomColor: isDark ? '#2D2D3D' : '#EBEBEB' },
+            {
+              borderBottomColor: colors.border,
+              backgroundColor: colors.background,
+            },
           ]}
         >
-          <TouchableOpacity
+          <Pressable
             onPress={() => router.back()}
-            style={styles.headerButton}
+            style={({ pressed }) => [
+              styles.headerButton,
+              { opacity: pressed ? 0.5 : 1 },
+            ]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons
-              name="close"
-              size={24}
-              color={isDark ? '#FFFFFF' : '#000000'}
-            />
-          </TouchableOpacity>
-          <ThemedText style={styles.headerTitle}>My Diets</ThemedText>
+            <Ionicons name="close" size={24} color={colors.icon} />
+          </Pressable>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            My Diets
+          </Text>
           <View style={styles.headerButton} />
         </View>
 
         {/* Content */}
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#8B5CF6" />
-            <ThemedText style={styles.loadingText}>Loading diets...</ThemedText>
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+              Loading diets...
+            </Text>
           </View>
         ) : (
           <ScrollView
@@ -134,7 +140,9 @@ export default function DietsScreen() {
             {/* Active Diet Section */}
             {activeDiet && (
               <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>Active Diet</ThemedText>
+                <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+                  Active Diet
+                </Text>
                 <DietCard
                   diet={activeDiet}
                   isSelected={selectedDietId === activeDiet.diet_id}
@@ -151,23 +159,37 @@ export default function DietsScreen() {
 
             {/* All Diets Section */}
             <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>
+              <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
                 {activeDiet ? 'Other Diets' : 'Your Diets'}
-              </ThemedText>
+              </Text>
 
-              {userDiets.filter((d) => d.diet_id !== activeDiet?.diet_id)
-                .length === 0 && !activeDiet ? (
+              {userDiets.filter((d) => d.diet_id !== activeDiet?.diet_id).length === 0 &&
+                !activeDiet ? (
                 <View style={styles.emptyState}>
                   <Ionicons
                     name="nutrition-outline"
                     size={48}
-                    color="#8B5CF6"
+                    color={colors.primary}
                     style={{ opacity: 0.4 }}
                   />
-                  <ThemedText style={styles.emptyTitle}>No diets yet</ThemedText>
-                  <ThemedText style={styles.emptySubtitle}>
+                  <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                    No diets yet
+                  </Text>
+                  <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
                     Create your first diet plan to start tracking your meals.
-                  </ThemedText>
+                  </Text>
+                </View>
+              ) : userDiets.filter((d) => d.diet_id !== activeDiet?.diet_id).length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons
+                    name="list-outline"
+                    size={40}
+                    color={colors.primary}
+                    style={{ opacity: 0.4 }}
+                  />
+                  <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+                    No other diets. Tap + to create another diet plan.
+                  </Text>
                 </View>
               ) : (
                 userDiets
@@ -190,18 +212,24 @@ export default function DietsScreen() {
             </View>
 
             {/* Bottom spacing for FAB */}
-            <View style={{ height: 80 }} />
+            <View style={{ height: 100 }} />
           </ScrollView>
         )}
 
         {/* Floating Action Button - Create Diet */}
-        <TouchableOpacity
-          style={styles.fab}
+        <Pressable
+          style={({ pressed }) => [
+            styles.fab,
+            {
+              backgroundColor: colors.primary,
+              opacity: pressed ? 0.8 : 1,
+              transform: [{ scale: pressed ? 0.95 : 1 }],
+            },
+          ]}
           onPress={handleCreateDiet}
-          activeOpacity={0.8}
         >
           <Ionicons name="add" size={28} color="#FFFFFF" />
-        </TouchableOpacity>
+        </Pressable>
 
         {/* Loading overlay when activating */}
         {isActivating && (
@@ -209,17 +237,17 @@ export default function DietsScreen() {
             <View
               style={[
                 styles.overlayContent,
-                { backgroundColor: isDark ? '#1C1C2E' : '#FFFFFF' },
+                { backgroundColor: colors.backgroundSecondary },
               ]}
             >
-              <ActivityIndicator size="large" color="#8B5CF6" />
-              <ThemedText style={styles.overlayText}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={[styles.overlayText, { color: colors.text }]}>
                 Activating diet...
-              </ThemedText>
+              </Text>
             </View>
           </View>
         )}
-      </ThemedView>
+      </View>
     </>
   );
 }
@@ -255,7 +283,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 14,
-    opacity: 0.6,
   },
   scrollView: {
     flex: 1,
@@ -271,7 +298,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    opacity: 0.5,
     marginBottom: 12,
     marginLeft: 4,
   },
@@ -283,13 +309,12 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '600',
-    opacity: 0.6,
   },
   emptySubtitle: {
     fontSize: 14,
-    opacity: 0.45,
     textAlign: 'center',
     paddingHorizontal: 32,
+    lineHeight: 20,
   },
   fab: {
     position: 'absolute',
@@ -298,7 +323,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#8B5CF6',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#8B5CF6',
@@ -318,6 +342,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     gap: 12,
+    minWidth: 200,
   },
   overlayText: {
     fontSize: 14,

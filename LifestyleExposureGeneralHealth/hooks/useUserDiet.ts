@@ -92,37 +92,58 @@ export function useUserDiet() {
   }, [user?.id, fetchDiets]);
 
   const deleteDiet = useCallback(async (dietId: string): Promise<boolean> => {
-    if (!user?.id) return false;
+    if (!user?.id) {
+      console.log('No user ID, cannot delete');
+      return false;
+    }
+
     try {
+      console.log('Attempting to delete diet:', dietId);
+
       // If deleting the active diet, clear it from profile first
       if (activeDiet?.diet_id === dietId) {
-        await supabase
+        console.log('Deleting active diet, clearing from profile first');
+        const { error: clearError } = await supabase
           .from('user_profiles')
           .update({ active_diet_id: null })
           .eq('user_id', user.id);
+
+        if (clearError) {
+          console.error('Error clearing active diet:', clearError);
+          // Continue anyway to try to delete
+        }
       }
 
+      // Delete the diet
       const { error: deleteError } = await supabase
         .from('diets')
         .delete()
         .eq('diet_id', dietId)
         .eq('user_id', user.id);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error('Error deleting diet:', deleteError);
+        throw deleteError;
+      }
 
+      console.log('Diet deleted successfully');
+
+      // Update local state
       if (activeDiet?.diet_id === dietId) {
         setActiveDiet(null);
         setContextActiveDiet(null);
       }
 
+      // Refresh the diets list
       await fetchDiets();
+
       return true;
     } catch (err) {
+      console.error('Delete diet error:', err);
       setError(err instanceof Error ? err.message : 'Failed to delete diet');
       return false;
     }
   }, [user?.id, activeDiet, fetchDiets, setContextActiveDiet]);
-
   const selectDiet = useCallback(async (dietId: string): Promise<boolean> => {
     if (!user?.id) return false;
     try {
