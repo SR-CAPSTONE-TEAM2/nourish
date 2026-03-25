@@ -19,8 +19,6 @@ const CHART_WIDTH = SCREEN_WIDTH - 80 // accounts for padding
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-// ─── Data helpers (unchanged from web version) ────────────────────────────────
-
 function groupMealsByMonth(meals: Meal[]) {
   const map: Record<string, number> = {}
   meals.forEach(m => {
@@ -99,11 +97,9 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
     <View style={styles.chartCard}>
       <Text style={styles.chartTitle}>{title}</Text>
       {children}
-    </View>
+    </div>
   )
 }
-
-// ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const router = useRouter()
@@ -200,6 +196,58 @@ export default function Dashboard() {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
 
+        {/* Top Nav */}
+        <nav style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '20px 36px',
+          borderBottom: '1px solid #222',
+          background: '#141414',
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+        }}>
+          <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: '20px', fontWeight: '700', color: '#f0f0f0' }}>
+            Nourish
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button onClick={() => router.push('/(protected)/(pages)/search')} style={{
+              background: '#2a2a2a', border: '1px solid #333',
+              borderRadius: '10px', padding: '7px 14px',
+              color: '#bbb', fontSize: '13px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              transition: 'border-color 0.2s, color 0.2s',
+            }}
+              onMouseEnter={e => { (e.target as HTMLButtonElement).style.color = '#e0e0e0'; (e.target as HTMLButtonElement).style.borderColor = '#555' }}
+              onMouseLeave={e => { (e.target as HTMLButtonElement).style.color = '#bbb'; (e.target as HTMLButtonElement).style.borderColor = '#333' }}
+            >
+              🔍 Search
+            </button>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '50%',
+              background: '#2a2a2a', border: '1px solid #333',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '14px', fontWeight: '600', color: '#bbb',
+            }}>
+              {profile?.first_name?.[0] ?? '?'}
+            </div>
+            <button onClick={signOut} style={{
+              background: 'transparent', border: '1px solid #333',
+              borderRadius: '10px', padding: '7px 14px',
+              color: '#888', fontSize: '13px', cursor: 'pointer',
+              transition: 'border-color 0.2s, color 0.2s',
+            }}
+              onMouseEnter={e => { (e.target as HTMLButtonElement).style.color = '#e0e0e0'; (e.target as HTMLButtonElement).style.borderColor = '#555' }}
+              onMouseLeave={e => { (e.target as HTMLButtonElement).style.color = '#888'; (e.target as HTMLButtonElement).style.borderColor = '#333' }}
+            >
+              Sign out
+            </button>
+          </div>
+        </nav>
+
+        {/* Main Content */}
+        <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
       {/* Top Nav */}
       <View style={styles.nav}>
         <Text style={styles.navLogo}>Nourish</Text>
