@@ -14,8 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { DietCard } from '@/components/ui/journal/diet-card';
 import { useUserDiet } from '@/hooks/useUserDiet';
 import { useTheme } from '@/context/theme-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 export default function DietsScreen() {
+  const insets = useSafeAreaInsets()
   const { colors, isDark } = useTheme();
   const router = useRouter();
 
@@ -104,6 +106,7 @@ export default function DietsScreen() {
             {
               borderBottomColor: colors.border,
               backgroundColor: colors.background,
+              paddingTop: insets.top,
             },
           ]}
         >
