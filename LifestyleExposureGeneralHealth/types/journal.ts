@@ -53,6 +53,34 @@ export interface MealEntry {
   createdAt: string;
 }
 
+export interface TemplateMeal {
+  id: string;
+  name: string;
+  ingredients: SelectedIngredient[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  rating: number | null;
+  isVegetarian?: boolean;
+}
+
+export interface FoodResult {
+  fdc_id: number;
+  ingredient_name: string;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  amount: number | null;
+  unit: string | null;
+  modifier: string | null;
+}
+
+export interface SelectedIngredient extends FoodResult {
+  qty: number;
+}
+
 export interface JournalState {
   entries: MealEntry[];
   isLoading: boolean;
@@ -65,6 +93,7 @@ export interface Diet {
   diet_name: string;
   description?: string;
   meal_structure: MealType[];
+  meal_descriptions?: Partial<Record<MealType, string>>;
   is_active: boolean;
   created_at: string;
   updated_at?: string;
@@ -74,6 +103,8 @@ export interface CreateDietInput {
   diet_name: string;
   description?: string;
   meal_structure: string[];
+  meal_descriptions?: Partial<Record<MealType, string>>;
+  meal_entries?: Record<string, TemplateMeal[]>;
 }
 
 export interface UpdateDietInput {

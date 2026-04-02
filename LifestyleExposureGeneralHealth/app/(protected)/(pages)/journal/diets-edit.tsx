@@ -108,6 +108,7 @@ export default function EditDietScreen() {
             diet_name: diet.diet_name,
             description: diet.description,
             meal_structure: diet.meal_structure,
+            meal_descriptions: diet.meal_descriptions,
           }}
           isEditing={true}
         />
