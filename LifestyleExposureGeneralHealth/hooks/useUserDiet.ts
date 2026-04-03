@@ -20,20 +20,36 @@ export function useUserDiet() {
       setIsLoading(true);
       setError(null);
 
-      // Fetch all diets belonging to this user
       const { data: diets, error: dietsError } = await supabase
         .from('diets')
-        .select('*')
+        .select(`
+        *,
+        diet_meals (
+          id,
+          meal_type,
+          user_meals (
+            meal_id,
+            meal_name,
+            meal_type,
+            total_calories,
+            total_protein,
+            total_fat,
+            total_carbs,
+            meal_image,
+            meal_rating,
+            meal_items (*)
+          )
+        )
+      `)
         .eq('user_id', user.id)
         .order('diet_name');
 
       if (dietsError) throw dietsError;
       setUserDiets(diets ?? []);
 
-      // Fetch active diet via user_profiles
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
-        .select('active_diet_id, diets(*)')
+        .select('active_diet_id, diets(*, diet_meals(*, user_meals(*, meal_items(*))))')
         .eq('user_id', user.id)
         .single();
 
@@ -49,7 +65,6 @@ export function useUserDiet() {
       setIsLoading(false);
     }
   }, [user?.id, setContextActiveDiet]);
-
   const createDiet = useCallback(async (input: CreateDietInput): Promise<Diet | null> => {
     if (!user?.id) return null;
     try {

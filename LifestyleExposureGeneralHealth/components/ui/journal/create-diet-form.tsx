@@ -28,6 +28,7 @@ import { TemplateMeal, FoodResult, SelectedIngredient } from '@/types/journal';
 interface CreateDietFormProps {
   onSubmit: (diet: CreateDietInput) => Promise<void>;
   onCancel: () => void;
+  onRemoveMeal?: (dietMealId: string, mealId: string) => Promise<void>;
   initialData?: Partial<CreateDietInput> & { meal_entries?: Record<string, TemplateMeal[]> };
   isEditing?: boolean;
 }
@@ -786,6 +787,7 @@ function MealSection({
 export function CreateDietForm({
   onSubmit,
   onCancel,
+  onRemoveMeal,
   initialData,
   isEditing = false,
 }: CreateDietFormProps) {
@@ -841,12 +843,20 @@ export function CreateDietForm({
     }));
   }, [activeMealType]);
 
-  const handleRemoveMeal = useCallback((mealKey: string, mealId: string) => {
+  const handleRemoveMeal = useCallback(async (mealKey: string, mealId: string) => {
+    const meal = mealEntries[mealKey]?.find((m) => m.id === mealId);
+
+    // Remove from local state immediately (optimistic)
     setMealEntries((prev) => ({
       ...prev,
       [mealKey]: (prev[mealKey] || []).filter((m) => m.id !== mealId),
     }));
-  }, []);
+
+    // If it has a meal_id it exists in the DB — delete it now
+    if (meal?.meal_id && onRemoveMeal) {
+      await onRemoveMeal(mealId, meal.meal_id);
+    }
+  }, [mealEntries, onRemoveMeal]);
 
   const handleRatingChange = useCallback((mealKey: string, mealId: string, rating: number | null) => {
     setMealEntries((prev) => ({
