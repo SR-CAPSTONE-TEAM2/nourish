@@ -20,33 +20,56 @@ import { supabase } from '@/lib/supabase'
 
 type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack'
 
+interface FoodPortion {
+  amount: number
+  unit: string
+  modifier: string | null
+  gram_weight: number
+}
+
 interface FoodResult {
   fdc_id: number
+  display_name: string
   ingredient_name: string
   calories: number | null
   protein: number | null
   carbs: number | null
   fat: number | null
+  // All available portions from DB (replaces single amount/unit/gram_weight)
+  portions: FoodPortion[] | null
+  // Kept for backwards compat — first portion's values
   amount: number | null
   unit: string | null
   modifier: string | null
+  gram_weight: number | null
 }
 
 interface SelectedIngredient extends FoodResult {
   qty: number
+  // The portion the user actually chose
+  chosen_gram_weight: number
+  chosen_portion_label: string
+}
+
+// Pending = food chosen from search, waiting for portion confirmation
+interface PendingFood {
+  item: FoodResult
+  // Which portion index is selected in the dropdown
+  portionIdx: number
+  // Free-entry quantity multiplier (e.g. 2 = 2× the chosen portion)
+  multiplier: string
 }
 
 interface Props {
   visible: boolean
   onClose: () => void
-  /** Called after a successful DB insert — parent can refresh its meal list */
   onSuccess?: () => void
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 20   // results per page
-const DEBOUNCE = 350  // ms
+const PAGE_SIZE = 20
+const DEBOUNCE = 350
 
 const MEAL_TYPES: MealType[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
 
@@ -57,7 +80,41 @@ const MEAL_COLORS: Record<MealType, string> = {
   Snack: '#f97316',
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Build a readable label for a portion, e.g. "1 cup (shredded)" or "28 g" */
+function portionLabel(p: FoodPortion): string {
+  const parts: string[] = []
+  if (p.amount) parts.push(String(p.amount))
+  if (p.unit && p.unit !== 'undetermined') parts.push(p.unit)
+  if (p.modifier) parts.push(`(${p.modifier})`)
+  parts.push(`· ${p.gram_weight}g`)
+  return parts.join(' ')
+}
+
+/** Always-available fallback: 100g */
+const PER_100G_PORTION: FoodPortion = {
+  amount: 100,
+  unit: 'g',
+  modifier: null,
+  gram_weight: 100,
+}
+
+/** Get sorted portions for a food, always including the 100g fallback */
+function getPortions(item: FoodResult): FoodPortion[] {
+  const db = (item.portions ?? []).filter(p => p.gram_weight > 0)
+  // Deduplicate by gram_weight label
+  const seen = new Set<string>()
+  const unique = db.filter(p => {
+    const key = portionLabel(p)
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  // Add 100g only if not already there
+  const has100g = unique.some(p => p.gram_weight === 100 && p.unit === 'g')
+  return has100g ? unique : [...unique, PER_100G_PORTION]
+}
 
 function formatPortion(item: FoodResult) {
   if (!item.amount && !item.unit) return 'per 100 g'
@@ -68,77 +125,354 @@ function formatPortion(item: FoodResult) {
   return parts.join(' ')
 }
 
-/** Scale a per-100g nutrient value by portion size × qty */
-function scaledNutrient(val: number | null, qty: number, amount: number | null) {
+/** Scale per-100g nutrient by grams consumed */
+function scaledNutrient(val: number | null, grams: number) {
   if (val == null) return 0
-  const scale = amount ? (amount * qty) / 100 : qty
-  return Math.round(val * scale)
+  return Math.round((val * grams) / 100)
 }
 
-// ─── Search logic ─────────────────────────────────────────────────────────────
-//
-// Strategy (in order):
-//  1. Full phrase match  — ILIKE '%chicken breast%'
-//  2. If < PAGE_SIZE results, also run a word-split OR search so that
-//     e.g. "grilled salmon" surfaces results containing "salmon" or "grilled"
-//  3. "Load more" appends the next page of the phrase match
+/** Grams consumed for a pending food selection */
+function pendingGrams(pending: PendingFood, portions: FoodPortion[]): number {
+  const portion = portions[pending.portionIdx] ?? PER_100G_PORTION
+  const mult = parseFloat(pending.multiplier)
+  const safeMult = isNaN(mult) || mult <= 0 ? 1 : mult
+  return portion.gram_weight * safeMult
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
 
 async function searchFoods(
   term: string,
   page: number,
 ): Promise<{ results: FoodResult[]; hasMore: boolean }> {
   const offset = page * PAGE_SIZE
-
-  const { data: phraseData, error } = await supabase.rpc('search_food_with_portions', {
+  const { data, error } = await supabase.rpc('search_food_with_portions', {
     search_term: term,
     result_limit: PAGE_SIZE,
     result_offset: offset,
   })
-
   if (error) return { results: [], hasMore: false }
-
-  const phraseResults: FoodResult[] = phraseData ?? []
-
-  // If first page has fewer than PAGE_SIZE hits, augment with a word-split OR search
-  if (page === 0 && phraseResults.length < PAGE_SIZE) {
-    const words = term.trim().split(/\s+/).filter(w => w.length > 2)
-    if (words.length > 1) {
-      // Run individual word searches and merge, de-duplicating by fdc_id
-      const wordSearches = await Promise.all(
-        words.map(word =>
-          supabase.rpc('search_food_with_portions', {
-            search_term: word,
-            result_limit: PAGE_SIZE,
-            result_offset: 0,
-          })
-        )
-      )
-      const seen = new Set(phraseResults.map(r => r.fdc_id))
-      const extra: FoodResult[] = []
-      for (const { data } of wordSearches) {
-        if (!data) continue
-        for (const item of data as FoodResult[]) {
-          if (!seen.has(item.fdc_id)) {
-            seen.add(item.fdc_id)
-            extra.push(item)
-          }
-        }
-      }
-      // Phrase matches first, word matches after
-      return {
-        results: [...phraseResults, ...extra].slice(0, PAGE_SIZE * 2),
-        hasMore: false, // mixed results don't support clean pagination
-      }
-    }
-  }
-
-  return {
-    results: phraseResults,
-    hasMore: phraseResults.length === PAGE_SIZE,
-  }
+  const results: FoodResult[] = data ?? []
+  return { results, hasMore: results.length === PAGE_SIZE }
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Grouping (unchanged) ─────────────────────────────────────────────────────
+
+const STRIP_WORDS = /,?\s*(raw|cooked|canned|frozen|fresh|diced|sliced|chopped|whole|boneless|skinless|peeled|dried|roasted|baked|grilled|boiled|steamed|uncooked|prepared|ground|shredded|grated|minced|cubed|crumbled|pitted|crushed|squeezed|reduced fat|low fat|fat free|nonfat|lowfat|NFS|ns|w\/|without skin|with skin)\b/gi
+
+export function baseName(name: string): string {
+  const beforeComma = name.split(',')[0].trim()
+  return beforeComma.replace(STRIP_WORDS, '').replace(/,\s*$/, '').trim()
+}
+
+interface FoodGroup {
+  base: string
+  items: FoodResult[]
+}
+
+export function groupByBaseName(results: FoodResult[]): FoodGroup[] {
+  const map = new Map<string, FoodResult[]>()
+  for (const item of results) {
+    if (!item.ingredient_name) continue
+    const key = baseName(item.ingredient_name).toLowerCase()
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(item)
+  }
+  return Array.from(map.entries()).map(([_, items]) => ({
+    base: baseName(items[0].ingredient_name),
+    items,
+  }))
+}
+
+function variantLabel(fullName: string, base: string): string {
+  const lower = fullName.toLowerCase()
+  const baseIdx = lower.indexOf(base.toLowerCase())
+  if (baseIdx !== -1) {
+    const after = fullName.slice(baseIdx + base.length).replace(/^,?\s*/, '').trim()
+    if (after) return after
+  }
+  const commaIdx = fullName.indexOf(',')
+  return commaIdx !== -1 ? fullName.slice(commaIdx + 1).trim() : fullName
+}
+
+// ─── Portion Picker (inline panel) ───────────────────────────────────────────
+
+function PortionPicker({
+  pending,
+  onChange,
+  onConfirm,
+  onCancel,
+  accentColor,
+}: {
+  pending: PendingFood
+  onChange: (next: PendingFood) => void
+  onConfirm: () => void
+  onCancel: () => void
+  accentColor: string
+}) {
+  const portions = getPortions(pending.item)
+  const grams = pendingGrams(pending, portions)
+  const kcal = scaledNutrient(pending.item.calories, grams)
+  const protein = scaledNutrient(pending.item.protein, grams)
+  const carbs = scaledNutrient(pending.item.carbs, grams)
+  const fat = scaledNutrient(pending.item.fat, grams)
+
+  return (
+    <View style={pickerStyles.wrap}>
+      {/* Food name */}
+      <Text style={pickerStyles.name} numberOfLines={2}>
+        {baseName(pending.item.ingredient_name)}
+      </Text>
+
+      {/* Unit selector */}
+      <Text style={pickerStyles.label}>Portion size</Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={pickerStyles.portionRow}
+      >
+        {portions.map((p, i) => (
+          <TouchableOpacity
+            key={i}
+            style={[
+              pickerStyles.portionChip,
+              pending.portionIdx === i && {
+                borderColor: accentColor,
+                backgroundColor: accentColor + '18',
+              },
+            ]}
+            onPress={() => onChange({ ...pending, portionIdx: i })}
+            activeOpacity={0.75}
+          >
+            <Text
+              style={[
+                pickerStyles.portionChipText,
+                pending.portionIdx === i && { color: accentColor },
+              ]}
+            >
+              {portions[i].amount}{' '}
+              {portions[i].unit !== 'undetermined' ? portions[i].unit : ''}
+              {portions[i].modifier ? ` (${portions[i].modifier})` : ''}
+            </Text>
+            <Text style={pickerStyles.portionChipGrams}>{portions[i].gram_weight}g</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
+      {/* Quantity multiplier */}
+      <Text style={pickerStyles.label}>How many?</Text>
+      <View style={pickerStyles.qtyWrap}>
+        <TouchableOpacity
+          style={pickerStyles.qtyStepBtn}
+          onPress={() => {
+            const cur = parseFloat(pending.multiplier)
+            const next = isNaN(cur) ? 1 : Math.max(0.25, parseFloat((cur - 0.25).toFixed(2)))
+            onChange({ ...pending, multiplier: String(next) })
+          }}
+        >
+          <Text style={pickerStyles.qtyStepText}>−</Text>
+        </TouchableOpacity>
+
+        <TextInput
+          style={pickerStyles.qtyInput}
+          value={pending.multiplier}
+          onChangeText={v => onChange({ ...pending, multiplier: v })}
+          keyboardType="decimal-pad"
+          selectTextOnFocus
+        />
+
+        <TouchableOpacity
+          style={pickerStyles.qtyStepBtn}
+          onPress={() => {
+            const cur = parseFloat(pending.multiplier)
+            const next = isNaN(cur) ? 1 : parseFloat((cur + 0.25).toFixed(2))
+            onChange({ ...pending, multiplier: String(next) })
+          }}
+        >
+          <Text style={pickerStyles.qtyStepText}>+</Text>
+        </TouchableOpacity>
+
+        <Text style={pickerStyles.qtyGrams}>= {Math.round(grams)}g total</Text>
+      </View>
+
+      {/* Live macro preview */}
+      <View style={pickerStyles.macroPreview}>
+        <View style={pickerStyles.macroPill}>
+          <Text style={[pickerStyles.macroVal, { color: '#f97316' }]}>{kcal}</Text>
+          <Text style={pickerStyles.macroLabel}>kcal</Text>
+        </View>
+        <View style={pickerStyles.macroPill}>
+          <Text style={[pickerStyles.macroVal, { color: '#34d399' }]}>{protein}g</Text>
+          <Text style={pickerStyles.macroLabel}>protein</Text>
+        </View>
+        <View style={pickerStyles.macroPill}>
+          <Text style={[pickerStyles.macroVal, { color: '#a78bfa' }]}>{carbs}g</Text>
+          <Text style={pickerStyles.macroLabel}>carbs</Text>
+        </View>
+        <View style={pickerStyles.macroPill}>
+          <Text style={[pickerStyles.macroVal, { color: '#60a5fa' }]}>{fat}g</Text>
+          <Text style={pickerStyles.macroLabel}>fat</Text>
+        </View>
+      </View>
+
+      {/* Actions */}
+      <View style={pickerStyles.actions}>
+        <TouchableOpacity style={pickerStyles.cancelBtn} onPress={onCancel}>
+          <Text style={pickerStyles.cancelText}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[pickerStyles.confirmBtn, { backgroundColor: accentColor }]}
+          onPress={onConfirm}
+        >
+          <Text style={pickerStyles.confirmText}>Add to meal</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  )
+}
+
+const pickerStyles = StyleSheet.create({
+  wrap: {
+    backgroundColor: '#1e1e1e',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 16,
+    padding: 16,
+    gap: 10,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#f0f0f0',
+    marginBottom: 2,
+  },
+  label: {
+    fontSize: 11,
+    color: '#555',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginTop: 4,
+  },
+  portionRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  portionChip: {
+    borderWidth: 1.5,
+    borderColor: '#2e2e2e',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: '#242424',
+    gap: 2,
+  },
+  portionChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#aaa',
+  },
+  portionChipGrams: {
+    fontSize: 10,
+    color: '#444',
+  },
+  qtyWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  qtyStepBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#2a2a2a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qtyStepText: {
+    color: '#ccc',
+    fontSize: 20,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  qtyInput: {
+    width: 64,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#242424',
+    borderWidth: 1,
+    borderColor: '#333',
+    color: '#f0f0f0',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  qtyGrams: {
+    fontSize: 12,
+    color: '#555',
+    marginLeft: 4,
+  },
+  macroPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  macroPill: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#212121',
+    borderRadius: 10,
+    paddingVertical: 8,
+    marginHorizontal: 2,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  macroVal: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  macroLabel: {
+    fontSize: 9,
+    color: '#444',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 1,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  cancelBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#242424',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2e2e2e',
+  },
+  cancelText: {
+    color: '#666',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmBtn: {
+    flex: 2,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmText: {
+    color: '#141414',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+})
+
+// ─── Main Modal ───────────────────────────────────────────────────────────────
 
 export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
   const [step, setStep] = useState<'type' | 'ingredients'>('type')
@@ -152,13 +486,15 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
   const [selected, setSelected] = useState<SelectedIngredient[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null)
+  // Pending portion selection
+  const [pending, setPending] = useState<PendingFood | null>(null)
 
   const slideAnim = useRef(new Animated.Value(600)).current
   const overlayAnim = useRef(new Animated.Value(0)).current
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastQuery = useRef('')
 
-  // ── Sheet animation
   useEffect(() => {
     if (visible) {
       Animated.parallel([
@@ -182,10 +518,12 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
     setHasMore(false)
     setSelected([])
     setSubmitError(null)
+    setExpandedGroup(null)
+    setPending(null)
     lastQuery.current = ''
   }
 
-  // ── Debounced search (page 0)
+  // Debounced search
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current)
     if (!query.trim()) { setResults([]); setHasMore(false); return }
@@ -194,8 +532,9 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
       lastQuery.current = query.trim()
       setSearching(true)
       setPage(0)
+      setExpandedGroup(null)
+      setPending(null)
       const { results: data, hasMore: more } = await searchFoods(query.trim(), 0)
-      // Guard against stale responses
       if (lastQuery.current !== query.trim()) return
       setResults(data)
       setHasMore(more)
@@ -203,7 +542,6 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
     }, DEBOUNCE)
   }, [query])
 
-  // ── Load more (next page)
   async function loadMore() {
     if (!hasMore || loadingMore) return
     setLoadingMore(true)
@@ -218,15 +556,53 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
     setLoadingMore(false)
   }
 
-  // ── Ingredient management
-  function addIngredient(item: FoodResult) {
-    setSelected(prev => {
-      const exists = prev.find(s => s.fdc_id === item.fdc_id)
-      if (exists) return prev.map(s => s.fdc_id === item.fdc_id ? { ...s, qty: s.qty + 1 } : s)
-      return [...prev, { ...item, qty: 1 }]
+  /** Tap a food item → open portion picker instead of immediately adding */
+  function selectFood(item: FoodResult) {
+    const portions = getPortions(item)
+    // Default to the first portion that isn't 100g if available
+    const defaultIdx = portions.findIndex(p => !(p.gram_weight === 100 && p.unit === 'g'))
+    setPending({
+      item,
+      portionIdx: defaultIdx >= 0 ? defaultIdx : 0,
+      multiplier: '1',
     })
-    setQuery('')
+    // Collapse the dropdown while picker is open
     setResults([])
+    setQuery('')
+  }
+
+  /** Confirm portion selection → add to selected list */
+  function confirmPending() {
+    if (!pending) return
+    const portions = getPortions(pending.item)
+    const portion = portions[pending.portionIdx] ?? PER_100G_PORTION
+    const mult = parseFloat(pending.multiplier)
+    const safeMult = isNaN(mult) || mult <= 0 ? 1 : mult
+    const grams = portion.gram_weight * safeMult
+
+    const label = `${safeMult !== 1 ? `${safeMult}× ` : ''}${portionLabel(portion)}`
+
+    setSelected(prev => {
+      const exists = prev.find(s => s.fdc_id === pending.item.fdc_id)
+      if (exists) {
+        // Update existing entry's portion
+        return prev.map(s =>
+          s.fdc_id === pending.item.fdc_id
+            ? { ...s, chosen_gram_weight: grams, chosen_portion_label: label, qty: 1 }
+            : s
+        )
+      }
+      return [
+        ...prev,
+        {
+          ...pending.item,
+          qty: 1,
+          chosen_gram_weight: grams,
+          chosen_portion_label: label,
+        },
+      ]
+    })
+    setPending(null)
     setHasMore(false)
   }
 
@@ -236,24 +612,26 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
   function changeQty(fdc_id: number, delta: number) {
     setSelected(prev =>
-      prev.map(s => s.fdc_id === fdc_id ? { ...s, qty: Math.max(1, s.qty + delta) } : s)
+      prev.map(s =>
+        s.fdc_id === fdc_id ? { ...s, qty: Math.max(1, s.qty + delta) } : s
+      )
     )
   }
 
+  // Totals use chosen_gram_weight × qty
   const totalCalories = selected.reduce(
-    (sum, s) => sum + scaledNutrient(s.calories, s.qty, s.amount), 0
+    (sum, s) => sum + scaledNutrient(s.calories, s.chosen_gram_weight * s.qty), 0
   )
   const totalProtein = selected.reduce(
-    (sum, s) => sum + scaledNutrient(s.protein, s.qty, s.amount), 0
+    (sum, s) => sum + scaledNutrient(s.protein, s.chosen_gram_weight * s.qty), 0
   )
   const totalCarbs = selected.reduce(
-    (sum, s) => sum + scaledNutrient(s.carbs, s.qty, s.amount), 0
+    (sum, s) => sum + scaledNutrient(s.carbs, s.chosen_gram_weight * s.qty), 0
   )
   const totalFat = selected.reduce(
-    (sum, s) => sum + scaledNutrient(s.fat, s.qty, s.amount), 0
+    (sum, s) => sum + scaledNutrient(s.fat, s.chosen_gram_weight * s.qty), 0
   )
 
-  // ── Submit to Supabase
   async function handleSubmit() {
     if (!mealType || selected.length === 0 || submitting) return
     setSubmitting(true)
@@ -263,7 +641,6 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
       const { data: { user }, error: authError } = await supabase.auth.getUser()
       if (authError || !user) throw new Error('Not authenticated')
 
-      // 1. Insert the meal header row
       const { data: mealRow, error: mealError } = await supabase
         .from('user_meals')
         .insert({
@@ -280,24 +657,21 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
       if (mealError || !mealRow) throw new Error(mealError?.message ?? 'Failed to create meal')
 
-      // 2. Insert each ingredient as a meal_item row
       const items = selected.map(s => ({
         meal_id: mealRow.meal_id,
         fdc_id: s.fdc_id,
         ingredient_name: s.ingredient_name,
         quantity: s.qty,
-        portion_amount: s.amount,
-        portion_unit: s.unit,
-        calories: scaledNutrient(s.calories, s.qty, s.amount),
-        protein: scaledNutrient(s.protein, s.qty, s.amount),
-        carbs: scaledNutrient(s.carbs, s.qty, s.amount),
-        fat: scaledNutrient(s.fat, s.qty, s.amount),
+        gram_weight: s.chosen_gram_weight,
+        calories: scaledNutrient(s.calories, s.chosen_gram_weight * s.qty),
+        protein: scaledNutrient(s.protein, s.chosen_gram_weight * s.qty),
+        carbs: scaledNutrient(s.carbs, s.chosen_gram_weight * s.qty),
+        fat: scaledNutrient(s.fat, s.chosen_gram_weight * s.qty),
       }))
 
       const { error: itemsError } = await supabase.from('meal_items').insert(items)
       if (itemsError) throw new Error(itemsError.message)
 
-      // Success
       onSuccess?.()
       onClose()
     } catch (err: any) {
@@ -309,10 +683,8 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
   const accentColor = mealType ? MEAL_COLORS[mealType] : '#f97316'
 
-  // ── Render
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
-      {/* Dim overlay */}
       <TouchableWithoutFeedback onPress={onClose}>
         <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} />
       </TouchableWithoutFeedback>
@@ -323,14 +695,11 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
         pointerEvents="box-none"
       >
         <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
-
-          {/* Handle bar */}
           <View style={styles.handle} />
 
-          {/* Header */}
           <View style={styles.header}>
             {step === 'ingredients' && (
-              <TouchableOpacity onPress={() => setStep('type')} style={styles.iconBtn}>
+              <TouchableOpacity onPress={() => { setStep('type'); setPending(null) }} style={styles.iconBtn}>
                 <Text style={styles.iconBtnText}>←</Text>
               </TouchableOpacity>
             )}
@@ -349,7 +718,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
             </TouchableOpacity>
           </View>
 
-          {/* ── STEP 1: pick meal type ── */}
+          {/* ── STEP 1 ── */}
           {step === 'type' && (
             <>
               <View style={styles.typeGrid}>
@@ -375,7 +744,6 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                   </TouchableOpacity>
                 ))}
               </View>
-
               <TouchableOpacity
                 style={[
                   styles.primaryBtn,
@@ -391,66 +759,117 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
             </>
           )}
 
-          {/* ── STEP 2: build ingredients ── */}
+          {/* ── STEP 2 ── */}
           {step === 'ingredients' && (
             <View style={styles.ingredientsWrap}>
 
-              {/* Search box */}
-              <View style={[styles.searchBox, { borderColor: query ? accentColor + '99' : '#2e2e2e' }]}>
-                <Text style={styles.searchIcon}>🔍</Text>
-                <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search ingredients…"
-                  placeholderTextColor="#444"
-                  value={query}
-                  onChangeText={setQuery}
-                  autoCorrect={false}
-                  returnKeyType="search"
+              {/* Search — hidden while picker is open */}
+              {!pending && (
+                <View style={[styles.searchBox, { borderColor: query ? accentColor + '99' : '#2e2e2e' }]}>
+                  <Text style={styles.searchIcon}>🔍</Text>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search ingredients…"
+                    placeholderTextColor="#444"
+                    value={query}
+                    onChangeText={setQuery}
+                    autoCorrect={false}
+                    returnKeyType="search"
+                  />
+                  {searching
+                    ? <ActivityIndicator size="small" color="#555" />
+                    : query.length > 0 && (
+                      <TouchableOpacity onPress={() => { setQuery(''); setResults([]) }}>
+                        <Text style={styles.clearBtn}>✕</Text>
+                      </TouchableOpacity>
+                    )
+                  }
+                </View>
+              )}
+
+              {/* Portion picker — shown instead of dropdown when a food is tapped */}
+              {pending && (
+                <PortionPicker
+                  pending={pending}
+                  onChange={setPending}
+                  onConfirm={confirmPending}
+                  onCancel={() => setPending(null)}
+                  accentColor={accentColor}
                 />
-                {searching
-                  ? <ActivityIndicator size="small" color="#555" />
-                  : query.length > 0 && (
-                    <TouchableOpacity onPress={() => { setQuery(''); setResults([]) }}>
-                      <Text style={styles.clearBtn}>✕</Text>
-                    </TouchableOpacity>
-                  )
-                }
-              </View>
+              )}
 
               {/* Search results dropdown */}
-              {results.length > 0 && (
+              {!pending && results.length > 0 && (
                 <View style={styles.dropdown}>
                   <FlatList
-                    data={results}
-                    keyExtractor={item => String(item.fdc_id)}
+                    data={groupByBaseName(results)}
+                    keyExtractor={group => group.base}
                     keyboardShouldPersistTaps="always"
                     style={styles.dropdownList}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.dropdownItem}
-                        onPress={() => addIngredient(item)}
-                      >
-                        <View style={styles.dropdownMain}>
-                          <Text style={styles.dropdownName} numberOfLines={2}>
-                            {item.ingredient_name}
-                          </Text>
-                          <Text style={styles.dropdownDetail}>{formatPortion(item)}</Text>
+                    renderItem={({ item: group }) => {
+                      const isSingle = group.items.length === 1
+                      const isExpanded = expandedGroup === group.base
+                      const representative = group.items[0]
+
+                      return (
+                        <View>
+                          <TouchableOpacity
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              if (isSingle) {
+                                selectFood(representative)
+                              } else {
+                                setExpandedGroup(isExpanded ? null : group.base)
+                              }
+                            }}
+                          >
+                            <View style={styles.dropdownMain}>
+                              <Text style={styles.dropdownName} numberOfLines={1}>
+                                {group.base}
+                              </Text>
+                              <Text style={styles.dropdownDetail}>
+                                {isSingle
+                                  ? formatPortion(representative)
+                                  : `${group.items.length} variations  ${isExpanded ? '▲' : '▼'}`
+                                }
+                              </Text>
+                            </View>
+                            {representative.calories != null && (
+                              <Text style={styles.dropdownCal}>
+                                {scaledNutrient(representative.calories, representative.gram_weight ?? 100)} kcal
+                              </Text>
+                            )}
+                          </TouchableOpacity>
+
+                          {isExpanded && group.items.map(item => (
+                            <TouchableOpacity
+                              key={item.fdc_id}
+                              style={[styles.dropdownItem, styles.variantRow]}
+                              onPress={() => {
+                                selectFood(item)
+                                setExpandedGroup(null)
+                              }}
+                            >
+                              <View style={styles.dropdownMain}>
+                                <Text style={[styles.dropdownName, styles.variantName]} numberOfLines={2}>
+                                  {variantLabel(item.ingredient_name, group.base) || item.ingredient_name}
+                                </Text>
+                                <Text style={styles.dropdownDetail}>{formatPortion(item)}</Text>
+                              </View>
+                              {item.calories != null && (
+                                <Text style={styles.dropdownCal}>
+                                  {scaledNutrient(item.calories, item.gram_weight ?? 100)} kcal
+                                </Text>
+                              )}
+                            </TouchableOpacity>
+                          ))}
                         </View>
-                        {item.calories != null && (
-                          <Text style={styles.dropdownCal}>
-                            {Math.round(item.calories * (item.amount ?? 100) / 100)} kcal
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    )}
+                      )
+                    }}
                     ItemSeparatorComponent={() => <View style={styles.sep} />}
                     ListFooterComponent={
                       hasMore ? (
-                        <TouchableOpacity
-                          style={styles.loadMoreBtn}
-                          onPress={loadMore}
-                          disabled={loadingMore}
-                        >
+                        <TouchableOpacity style={styles.loadMoreBtn} onPress={loadMore} disabled={loadingMore}>
                           {loadingMore
                             ? <ActivityIndicator size="small" color="#555" />
                             : <Text style={styles.loadMoreText}>Load more results…</Text>
@@ -464,55 +883,55 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                 </View>
               )}
 
-              {/* No results hint */}
-              {!searching && query.length > 0 && results.length === 0 && (
+              {!pending && !searching && query.length > 0 && results.length === 0 && (
                 <Text style={styles.noResults}>No results for "{query}". Try a different term.</Text>
               )}
 
               {/* Selected ingredients */}
-              <ScrollView
-                style={styles.selectedScroll}
-                keyboardShouldPersistTaps="always"
-                showsVerticalScrollIndicator={false}
-              >
-                {selected.length === 0 ? (
-                  <Text style={styles.emptyHint}>Search above to add ingredients to your meal.</Text>
-                ) : (
-                  selected.map(item => (
-                    <View key={item.fdc_id} style={styles.selectedRow}>
-                      <View style={styles.selectedInfo}>
-                        <Text style={styles.selectedName} numberOfLines={2}>
-                          {item.ingredient_name}
-                        </Text>
-                        <Text style={styles.selectedDetail}>
-                          {formatPortion(item)}
-                          {'  ·  '}
-                          <Text style={{ color: '#f97316' }}>
-                            {scaledNutrient(item.calories, item.qty, item.amount)} kcal
+              {!pending && (
+                <ScrollView
+                  style={styles.selectedScroll}
+                  keyboardShouldPersistTaps="always"
+                  showsVerticalScrollIndicator={false}
+                >
+                  {selected.length === 0 ? (
+                    <Text style={styles.emptyHint}>Search above to add ingredients to your meal.</Text>
+                  ) : (
+                    selected.map(item => (
+                      <View key={item.fdc_id} style={styles.selectedRow}>
+                        <View style={styles.selectedInfo}>
+                          <Text style={styles.selectedName} numberOfLines={2}>
+                            {baseName(item.ingredient_name)}
                           </Text>
-                        </Text>
+                          <Text style={styles.selectedDetail}>
+                            {item.chosen_portion_label}
+                            {'  ·  '}
+                            <Text style={{ color: '#f97316' }}>
+                              {scaledNutrient(item.calories, item.chosen_gram_weight * item.qty)} kcal
+                            </Text>
+                          </Text>
+                        </View>
+                        <View style={styles.qtyRow}>
+                          <TouchableOpacity style={styles.qtyBtn} onPress={() => changeQty(item.fdc_id, -1)}>
+                            <Text style={styles.qtyBtnText}>−</Text>
+                          </TouchableOpacity>
+                          <Text style={styles.qtyNum}>{item.qty}</Text>
+                          <TouchableOpacity style={styles.qtyBtn} onPress={() => changeQty(item.fdc_id, 1)}>
+                            <Text style={styles.qtyBtnText}>+</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={styles.removeBtn} onPress={() => removeIngredient(item.fdc_id)}>
+                            <Text style={styles.removeBtnText}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
                       </View>
-                      <View style={styles.qtyRow}>
-                        <TouchableOpacity style={styles.qtyBtn} onPress={() => changeQty(item.fdc_id, -1)}>
-                          <Text style={styles.qtyBtnText}>−</Text>
-                        </TouchableOpacity>
-                        <Text style={styles.qtyNum}>{item.qty}</Text>
-                        <TouchableOpacity style={styles.qtyBtn} onPress={() => changeQty(item.fdc_id, 1)}>
-                          <Text style={styles.qtyBtnText}>+</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.removeBtn} onPress={() => removeIngredient(item.fdc_id)}>
-                          <Text style={styles.removeBtnText}>✕</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ))
-                )}
-              </ScrollView>
+                    ))
+                  )}
+                </ScrollView>
+              )}
 
-              {/* Macro summary + submit */}
-              {selected.length > 0 && (
+              {/* Footer */}
+              {!pending && selected.length > 0 && (
                 <View style={styles.footer}>
-                  {/* Macro pills */}
                   <View style={styles.macroRow}>
                     <View style={styles.macroPill}>
                       <Text style={[styles.macroVal, { color: '#f97316' }]}>{totalCalories}</Text>
@@ -532,12 +951,10 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                     </View>
                   </View>
 
-                  {/* Error */}
                   {submitError && (
                     <Text style={styles.errorText}>{submitError}</Text>
                   )}
 
-                  {/* Submit button */}
                   <TouchableOpacity
                     style={[styles.primaryBtn, { backgroundColor: accentColor }, submitting && { opacity: 0.6 }]}
                     onPress={handleSubmit}
@@ -551,10 +968,8 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                   </TouchableOpacity>
                 </View>
               )}
-
             </View>
           )}
-
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -583,8 +998,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#252525',
   },
-
-  // Handle
   handle: {
     width: 38,
     height: 4,
@@ -594,8 +1007,6 @@ const styles = StyleSheet.create({
     marginTop: 12,
     marginBottom: 6,
   },
-
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -636,8 +1047,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-
-  // Meal type grid
   typeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -661,8 +1070,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#bbb',
   },
-
-  // Primary action button
   primaryBtn: {
     borderRadius: 16,
     paddingVertical: 15,
@@ -677,14 +1084,10 @@ const styles = StyleSheet.create({
     color: '#141414',
   },
   primaryBtnTextDisabled: { color: '#444' },
-
-  // Ingredients step wrapper
   ingredientsWrap: {
     flex: 1,
     gap: 10,
   },
-
-  // Search
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -708,8 +1111,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     paddingLeft: 4,
   },
-
-  // Dropdown
   dropdown: {
     backgroundColor: '#1e1e1e',
     borderWidth: 1,
@@ -769,8 +1170,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 8,
   },
-
-  // Selected list
   selectedScroll: { maxHeight: 230 },
   emptyHint: {
     color: '#333',
@@ -840,8 +1239,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
-
-  // Footer
   footer: {
     gap: 10,
     paddingTop: 8,
@@ -878,5 +1275,15 @@ const styles = StyleSheet.create({
     color: '#e05555',
     textAlign: 'center',
     paddingHorizontal: 4,
+  },
+  variantRow: {
+    paddingLeft: 26,
+    backgroundColor: '#1c1c1c',
+    borderLeftWidth: 2,
+    borderLeftColor: '#2e2e2e',
+  },
+  variantName: {
+    fontSize: 13,
+    color: '#999',
   },
 })
