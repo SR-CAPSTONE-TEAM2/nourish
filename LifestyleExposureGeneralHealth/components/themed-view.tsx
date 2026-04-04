@@ -1,5 +1,5 @@
 // components/themed-view.tsx
-import { View, ViewProps, useColorScheme } from 'react-native';
+import { View, ViewProps } from 'react-native';
 
 export type ThemedViewProps = ViewProps & {
   lightColor?: string;
@@ -8,14 +8,12 @@ export type ThemedViewProps = ViewProps & {
 
 export function ThemedView({
   style,
-  lightColor = '#FFFFFF',
+  lightColor,
   darkColor = '#121212',
   ...otherProps
 }: ThemedViewProps) {
-  const colorScheme = useColorScheme();
-  // Default to 'light' if colorScheme is null (common on Android)
-  const isDark = colorScheme === 'dark';
-  const backgroundColor = isDark ? darkColor : lightColor;
+  // App always uses dark theme (consistent with useThemeColor)
+  const backgroundColor = darkColor;
 
   return <View style={[{ backgroundColor }, style]} {...otherProps} />;
 }

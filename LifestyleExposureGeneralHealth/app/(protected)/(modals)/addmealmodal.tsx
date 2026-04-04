@@ -36,11 +36,27 @@ interface SelectedIngredient extends FoodResult {
   qty: number
 }
 
+export interface AddedMealItem {
+  fdc_id: number
+  ingredient_name: string
+  quantity: number
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+export interface AddMealSuccessPayload {
+  mealType: MealType
+  mealId: string
+  items: AddedMealItem[]
+}
+
 interface Props {
   visible: boolean
   onClose: () => void
   /** Called after a successful DB insert — parent can refresh its meal list */
-  onSuccess?: () => void
+  onSuccess?: (payload?: AddMealSuccessPayload) => void
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -269,7 +285,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
         .insert({
           user_id: user.id,
           meal_type: mealType,
-          meal_date: new Date().toISOString(),
+          meal_date: new Date().toISOString().split('T')[0],
           total_calories: totalCalories,
           total_protein: totalProtein,
           total_carbs: totalCarbs,
@@ -286,19 +302,27 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
         fdc_id: s.fdc_id,
         ingredient_name: s.ingredient_name,
         quantity: s.qty,
-        portion_amount: s.amount,
-        portion_unit: s.unit,
-        calories: scaledNutrient(s.calories, s.qty, s.amount),
-        protein: scaledNutrient(s.protein, s.qty, s.amount),
-        carbs: scaledNutrient(s.carbs, s.qty, s.amount),
-        fat: scaledNutrient(s.fat, s.qty, s.amount),
       }))
 
       const { error: itemsError } = await supabase.from('meal_items').insert(items)
       if (itemsError) throw new Error(itemsError.message)
 
+      const successPayload: AddMealSuccessPayload = {
+        mealType,
+        mealId: mealRow.meal_id,
+        items: selected.map(s => ({
+          fdc_id: s.fdc_id,
+          ingredient_name: s.ingredient_name,
+          quantity: s.qty,
+          calories: scaledNutrient(s.calories, s.qty, s.amount),
+          protein: scaledNutrient(s.protein, s.qty, s.amount),
+          carbs: scaledNutrient(s.carbs, s.qty, s.amount),
+          fat: scaledNutrient(s.fat, s.qty, s.amount),
+        })),
+      }
+
       // Success
-      onSuccess?.()
+      onSuccess?.(successPayload)
       onClose()
     } catch (err: any) {
       setSubmitError(err.message ?? 'Something went wrong. Please try again.')

@@ -9,10 +9,11 @@ interface MealSectionsProps {
   expandedMeals: Set<MealType>;
   onToggleMeal: (meal: MealType) => void;
   onSelectItem: (item: FoodItem) => void;
+  onDeleteItem?: (item: FoodItem) => void;
 }
 
-export const MealSections = ({ items, expandedMeals, onToggleMeal, onSelectItem }: MealSectionsProps) => {
-  const mealTypes: MealType[] = ['Breakfast', 'Lunch', 'Dinner'];
+export const MealSections = ({ items, expandedMeals, onToggleMeal, onSelectItem, onDeleteItem }: MealSectionsProps) => {
+  const mealTypes: MealType[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
 
   return (
     <>
@@ -28,7 +29,7 @@ export const MealSections = ({ items, expandedMeals, onToggleMeal, onSelectItem 
               activeOpacity={0.7}
             >
               <View style={styles.mealHeaderLeft}>
-                <ThemedText type="subtitle">{meal}</ThemedText>
+                <ThemedText type="subtitle" style={{ color: '#ffffff' }}>{meal}</ThemedText>
                 <ThemedText style={styles.itemCount}>
                   {mealItems.length} item{mealItems.length !== 1 ? 's' : ''}
                 </ThemedText>
@@ -50,15 +51,26 @@ export const MealSections = ({ items, expandedMeals, onToggleMeal, onSelectItem 
                   <ThemedText style={styles.noItems}>No items logged</ThemedText>
                 ) : (
                   mealItems.map((it) => (
-                    <TouchableOpacity
-                      key={it.id}
-                      style={styles.foodRow}
-                      onPress={() => onSelectItem(it)}
-                      activeOpacity={0.7}
-                    >
-                      <ThemedText type="defaultSemiBold" style={styles.foodName}>{it.name}</ThemedText>
-                      <ThemedText style={styles.foodCalories}>{it.calories} kcal</ThemedText>
-                    </TouchableOpacity>
+                    <View key={it.id} style={styles.foodRow}>
+                      <TouchableOpacity
+                        style={styles.foodRowContent}
+                        onPress={() => onSelectItem(it)}
+                        activeOpacity={0.7}
+                      >
+                        <ThemedText type="defaultSemiBold" style={[styles.foodName, { color: '#ffffff' }]}>{it.name}</ThemedText>
+                        <ThemedText style={styles.foodCalories}>{it.calories} kcal</ThemedText>
+                      </TouchableOpacity>
+                      {onDeleteItem && (
+                        <TouchableOpacity
+                          onPress={() => onDeleteItem(it)}
+                          style={styles.deleteBtn}
+                          activeOpacity={0.7}
+                          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                          <ThemedText style={styles.deleteIcon}>×</ThemedText>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   ))
                 )}
               </View>
@@ -100,13 +112,29 @@ export const styles = StyleSheet.create({
   },
   foodRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 3,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+  },
+  foodRowContent: {
+    flex: 1,
+    flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 11,
     paddingHorizontal: 14,
-    borderRadius: 10,
-    marginVertical: 3,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  deleteBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  deleteIcon: {
+    fontSize: 20,
+    color: '#ff4444',
+    lineHeight: 22,
   },
   foodName: {
     flex: 1,

@@ -39,7 +39,7 @@ export const NutrientReport = ({
 }: NutrientReportProps) => {
   return (
     <ThemedView style={styles.reportSection}>
-      <ThemedText type="title" style={styles.reportTitle}>Nutrient Report</ThemedText>
+      <ThemedText type="title" style={[styles.reportTitle, { color: '#ffffff' }]}>Nutrient Report</ThemedText>
 
       {/* Vitamins Subsection */}
       <ThemedView style={styles.reportSubsection}>
@@ -50,7 +50,7 @@ export const NutrientReport = ({
         >
           <View style={styles.reportHeaderLeft}>
             <View style={[styles.sectionAccent, { backgroundColor: '#8B5CF6' }]} />
-            <ThemedText type="subtitle">Vitamins</ThemedText>
+            <ThemedText type="subtitle" style={styles.whiteText}>Vitamins</ThemedText>
           </View>
           <ThemedText type="defaultSemiBold" style={styles.chevron}>
             {expandedReportSections.has('vitamins') ? '▼' : '▶'}
@@ -61,8 +61,8 @@ export const NutrientReport = ({
             {/* Vitamin A */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Vitamin A</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalVitamins.vitaminA)} / {RECOMMENDED_VITAMINS.vitaminA} mcg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin A</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminA.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminA} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminA} />
             </ThemedView>
@@ -70,8 +70,8 @@ export const NutrientReport = ({
             {/* B1 */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">B1 (Thiamine)</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalVitamins.vitaminB1.toFixed(2)} / {RECOMMENDED_VITAMINS.vitaminB1} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>B1 (Thiamine)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB1.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB1} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB1} />
             </ThemedView>
@@ -79,8 +79,8 @@ export const NutrientReport = ({
             {/* B2 */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">B2 (Riboflavin)</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalVitamins.vitaminB2.toFixed(2)} / {RECOMMENDED_VITAMINS.vitaminB2} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>B2 (Riboflavin)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB2.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB2} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB2} />
             </ThemedView>
@@ -88,8 +88,8 @@ export const NutrientReport = ({
             {/* B3 */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">B3 (Niacin)</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalVitamins.vitaminB3.toFixed(2)} / {RECOMMENDED_VITAMINS.vitaminB3} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>B3 (Niacin)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB3.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB3} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB3} />
             </ThemedView>
@@ -97,8 +97,8 @@ export const NutrientReport = ({
             {/* B5 */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">B5 (Pantothenic acid)</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalVitamins.vitaminB5.toFixed(2)} / {RECOMMENDED_VITAMINS.vitaminB5} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>B5 (Pantothenic acid)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB5.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB5} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB5} />
             </ThemedView>
@@ -106,8 +106,8 @@ export const NutrientReport = ({
             {/* B6 */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">B6 (Pyridoxine)</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalVitamins.vitaminB6.toFixed(2)} / {RECOMMENDED_VITAMINS.vitaminB6} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>B6 (Pyridoxine)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB6.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB6} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB6} />
             </ThemedView>
@@ -115,8 +115,8 @@ export const NutrientReport = ({
             {/* B12 */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">B12 (Cobalamin)</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalVitamins.vitaminB12.toFixed(2)} / {RECOMMENDED_VITAMINS.vitaminB12} mcg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>B12 (Cobalamin)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB12.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB12} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB12} />
             </ThemedView>
@@ -124,8 +124,8 @@ export const NutrientReport = ({
             {/* Folate */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Folate</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalVitamins.folate)} / {RECOMMENDED_VITAMINS.folate} mcg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Folate</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.folate.toFixed(1)} / {RECOMMENDED_VITAMINS.folate} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.folate} />
             </ThemedView>
@@ -133,8 +133,8 @@ export const NutrientReport = ({
             {/* Vitamin C */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Vitamin C</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalVitamins.vitaminC)} / {RECOMMENDED_VITAMINS.vitaminC} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin C</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminC.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminC} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminC} />
             </ThemedView>
@@ -142,8 +142,8 @@ export const NutrientReport = ({
             {/* Vitamin D */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Vitamin D</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalVitamins.vitaminD.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminD} mcg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin D</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminD.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminD} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminD} />
             </ThemedView>
@@ -151,8 +151,8 @@ export const NutrientReport = ({
             {/* Vitamin E */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Vitamin E</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalVitamins.vitaminE.toFixed(2)} / {RECOMMENDED_VITAMINS.vitaminE} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin E</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminE.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminE} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminE} />
             </ThemedView>
@@ -160,8 +160,8 @@ export const NutrientReport = ({
             {/* Vitamin K */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Vitamin K</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalVitamins.vitaminK)} / {RECOMMENDED_VITAMINS.vitaminK} mcg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin K</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminK.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminK} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminK} />
             </ThemedView>
@@ -178,7 +178,7 @@ export const NutrientReport = ({
         >
           <View style={styles.reportHeaderLeft}>
             <View style={[styles.sectionAccent, { backgroundColor: '#F59E0B' }]} />
-            <ThemedText type="subtitle">Minerals</ThemedText>
+            <ThemedText type="subtitle" style={styles.whiteText}>Minerals</ThemedText>
           </View>
           <ThemedText type="defaultSemiBold" style={styles.chevron}>
             {expandedReportSections.has('minerals') ? '▼' : '▶'}
@@ -189,8 +189,8 @@ export const NutrientReport = ({
             {/* Calcium */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Calcium</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalMinerals.calcium)} / {RECOMMENDED_MINERALS.calcium} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Calcium</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.calcium.toFixed(1)} / {RECOMMENDED_MINERALS.calcium} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.calcium} />
             </ThemedView>
@@ -198,8 +198,8 @@ export const NutrientReport = ({
             {/* Copper */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Copper</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalMinerals.copper.toFixed(2)} / {RECOMMENDED_MINERALS.copper} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Copper</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.copper.toFixed(1)} / {RECOMMENDED_MINERALS.copper} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.copper} />
             </ThemedView>
@@ -207,8 +207,8 @@ export const NutrientReport = ({
             {/* Iron */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Iron</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalMinerals.iron.toFixed(1)} / {RECOMMENDED_MINERALS.iron} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Iron</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.iron.toFixed(1)} / {RECOMMENDED_MINERALS.iron} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.iron} />
             </ThemedView>
@@ -216,8 +216,8 @@ export const NutrientReport = ({
             {/* Magnesium */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Magnesium</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalMinerals.magnesium)} / {RECOMMENDED_MINERALS.magnesium} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Magnesium</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.magnesium.toFixed(1)} / {RECOMMENDED_MINERALS.magnesium} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.magnesium} />
             </ThemedView>
@@ -225,8 +225,8 @@ export const NutrientReport = ({
             {/* Manganese */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Manganese</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalMinerals.manganese.toFixed(2)} / {RECOMMENDED_MINERALS.manganese} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Manganese</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.manganese.toFixed(1)} / {RECOMMENDED_MINERALS.manganese} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.manganese} />
             </ThemedView>
@@ -234,8 +234,8 @@ export const NutrientReport = ({
             {/* Phosphorus */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Phosphorus</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalMinerals.phosphorus)} / {RECOMMENDED_MINERALS.phosphorus} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Phosphorus</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.phosphorus.toFixed(1)} / {RECOMMENDED_MINERALS.phosphorus} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.phosphorus} />
             </ThemedView>
@@ -243,8 +243,8 @@ export const NutrientReport = ({
             {/* Selenium */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Selenium</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalMinerals.selenium)} / {RECOMMENDED_MINERALS.selenium} mcg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Selenium</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.selenium.toFixed(1)} / {RECOMMENDED_MINERALS.selenium} mcg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.selenium} />
             </ThemedView>
@@ -252,8 +252,8 @@ export const NutrientReport = ({
             {/* Sodium */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Sodium</ThemedText>
-                <ThemedText type="defaultSemiBold">{Math.round(totalMinerals.sodium)} / {RECOMMENDED_MINERALS.sodium} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Sodium</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.sodium.toFixed(1)} / {RECOMMENDED_MINERALS.sodium} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.sodium} />
             </ThemedView>
@@ -261,8 +261,8 @@ export const NutrientReport = ({
             {/* Zinc */}
             <ThemedView style={styles.vitaminNutrientRow}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle">Zinc</ThemedText>
-                <ThemedText type="defaultSemiBold">{totalMinerals.zinc.toFixed(2)} / {RECOMMENDED_MINERALS.zinc} mg</ThemedText>
+                <ThemedText type="subtitle" style={styles.whiteText}>Zinc</ThemedText>
+                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.zinc.toFixed(1)} / {RECOMMENDED_MINERALS.zinc} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.zinc} />
             </ThemedView>
@@ -323,6 +323,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  whiteText: {
+    color: '#ffffff',
   },
   vitaminLabel: {
     flexDirection: 'row',

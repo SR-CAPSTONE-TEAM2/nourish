@@ -13,9 +13,20 @@ interface FoodModalProps {
 }
 
 export default function FoodModal() {
-  const { foodId } = useLocalSearchParams();
+  const { foodId, foodName, calories, protein, carbs, fat } = useLocalSearchParams();
 
-  const foodItem = SAMPLE_MEALS.find(item => item.id === foodId);
+  const toSingleParam = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
+  const foodItem = SAMPLE_MEALS.find(item => item.id === toSingleParam(foodId));
+
+  const fallbackFood = {
+    name: toSingleParam(foodName) ?? 'Meal',
+    calories: Number(toSingleParam(calories) ?? 0),
+    protein: Number(toSingleParam(protein) ?? 0),
+    carbs: Number(toSingleParam(carbs) ?? 0),
+    fat: Number(toSingleParam(fat) ?? 0),
+  };
+
+  const displayFood = foodItem ?? fallbackFood;
 
   return (
     <View style={styles.modalOverlay}>
@@ -26,24 +37,24 @@ export default function FoodModal() {
         >
           <ThemedText type="title">×</ThemedText>
         </TouchableOpacity>
-        {foodItem ? (
+        {displayFood ? (
           <>
-            <ThemedText type="title" style={styles.modalTitle}>{foodItem.name}</ThemedText>
+            <ThemedText type="title" style={styles.modalTitle}>{displayFood.name}</ThemedText>
             <View style={styles.modalNutrientRow}>
               <ThemedText type="subtitle">Calories</ThemedText>
-              <ThemedText type="defaultSemiBold">{foodItem.calories} kcal</ThemedText>
+              <ThemedText type="defaultSemiBold">{displayFood.calories} kcal</ThemedText>
             </View>
             <View style={styles.modalNutrientRow}>
               <ThemedText type="subtitle">Protein</ThemedText>
-              <ThemedText type="defaultSemiBold">{foodItem.protein}g</ThemedText>
+              <ThemedText type="defaultSemiBold">{displayFood.protein}g</ThemedText>
             </View>
             <View style={styles.modalNutrientRow}>
               <ThemedText type="subtitle">Carbs</ThemedText>
-              <ThemedText type="defaultSemiBold">{foodItem.carbs}g</ThemedText>
+              <ThemedText type="defaultSemiBold">{displayFood.carbs}g</ThemedText>
             </View>
             <View style={styles.modalNutrientRow}>
               <ThemedText type="subtitle">Fat</ThemedText>
-              <ThemedText type="defaultSemiBold">{foodItem.fat}g</ThemedText>
+              <ThemedText type="defaultSemiBold">{displayFood.fat}g</ThemedText>
             </View>
           </>
         ) : (

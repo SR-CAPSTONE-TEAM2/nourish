@@ -1,28 +1,336 @@
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { supabase } from '@/lib/supabase';
+import AddMealModal, { AddMealSuccessPayload } from '../../(modals)/addmealmodal';
 
 import { FoodItem, MealType, Vitamins, Minerals } from '@/types/types';
-import { SAMPLE_MEALS, RECOMMENDED, RECOMMENDED_VITAMINS, RECOMMENDED_MINERALS } from '@/constants/recommended';
+import { RECOMMENDED, RECOMMENDED_VITAMINS, RECOMMENDED_MINERALS } from '@/constants/recommended';
 import { SummarySection } from '@/components/ui/meals/summary-section';
 import { MealSections, toggleMeal } from '@/components/ui/meals/meal-section';
 import { NutrientReport, toggleReportSection } from '@/components/ui/meals/nutrient-report';
 
+interface FoodNutrientRow {
+  fdc_id: number;
+  display_name: string | null;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}
+
+interface UsdaFoodNutrientRow {
+  fdc_id: number;
+  nutrient_id: number;
+  amount: number;
+}
+
+interface UsdaNutrientRow {
+  id: number;
+  name: string;
+}
+
+// Map a USDA nutrient name (lower-cased) to a Vitamins or Minerals field
+function nutrientNameToField(
+  name: string,
+): { kind: 'vitamin'; field: keyof Vitamins } | { kind: 'mineral'; field: keyof Minerals } | null {
+  const n = name.toLowerCase();
+  if (n.includes('vitamin a')) return { kind: 'vitamin', field: 'vitaminA' };
+  if (n.includes('thiamin')) return { kind: 'vitamin', field: 'vitaminB1' };
+  if (n.includes('riboflavin')) return { kind: 'vitamin', field: 'vitaminB2' };
+  if (n.includes('niacin')) return { kind: 'vitamin', field: 'vitaminB3' };
+  if (n.includes('pantothenic')) return { kind: 'vitamin', field: 'vitaminB5' };
+  if (n.includes('vitamin b-6') || n.includes('vitamin b6')) return { kind: 'vitamin', field: 'vitaminB6' };
+  if (n.includes('vitamin b-12') || n.includes('vitamin b12')) return { kind: 'vitamin', field: 'vitaminB12' };
+  if (n.includes('folate') || n.includes('folic')) return { kind: 'vitamin', field: 'folate' };
+  if (n.includes('vitamin c')) return { kind: 'vitamin', field: 'vitaminC' };
+  if (n.includes('vitamin d')) return { kind: 'vitamin', field: 'vitaminD' };
+  if (n.includes('vitamin e')) return { kind: 'vitamin', field: 'vitaminE' };
+  if (n.includes('vitamin k')) return { kind: 'vitamin', field: 'vitaminK' };
+  if (n.includes('calcium')) return { kind: 'mineral', field: 'calcium' };
+  if (n.includes('copper')) return { kind: 'mineral', field: 'copper' };
+  if (n.includes('iron')) return { kind: 'mineral', field: 'iron' };
+  if (n.includes('magnesium')) return { kind: 'mineral', field: 'magnesium' };
+  if (n.includes('manganese')) return { kind: 'mineral', field: 'manganese' };
+  if (n.includes('phosphorus')) return { kind: 'mineral', field: 'phosphorus' };
+  if (n.includes('selenium')) return { kind: 'mineral', field: 'selenium' };
+  if (n.includes('sodium')) return { kind: 'mineral', field: 'sodium' };
+  if (n.includes('zinc')) return { kind: 'mineral', field: 'zinc' };
+  return null;
+}
+
+interface UserMealRow {
+  meal_id: string;
+  meal_type: string | null;
+}
+
+interface MealItemRow {
+  item_id: string;
+  meal_id: string;
+  fdc_id: number | null;
+  quantity: number | null;
+  ingredient_name: string | null;
+}
+
+const ZERO_VITAMINS: Vitamins = {
+  vitaminA: 0,
+  vitaminB1: 0,
+  vitaminB2: 0,
+  vitaminB3: 0,
+  vitaminB5: 0,
+  vitaminB6: 0,
+  vitaminB12: 0,
+  folate: 0,
+  vitaminC: 0,
+  vitaminD: 0,
+  vitaminE: 0,
+  vitaminK: 0,
+};
+
+const ZERO_MINERALS: Minerals = {
+  calcium: 0,
+  copper: 0,
+  iron: 0,
+  magnesium: 0,
+  manganese: 0,
+  phosphorus: 0,
+  selenium: 0,
+  sodium: 0,
+  zinc: 0,
+};
+
+function normalizeMealType(mealType: string | null): MealType {
+  const normalized = mealType?.toLowerCase();
+  if (normalized === 'breakfast') return 'Breakfast';
+  if (normalized === 'lunch') return 'Lunch';
+  if (normalized === 'dinner') return 'Dinner';
+  return 'Snack';
+}
+
+function appendSavedItems(
+  prevItems: FoodItem[],
+  payload: AddMealSuccessPayload,
+): FoodItem[] {
+  const optimisticItems: FoodItem[] = payload.items.map((item, index) => ({
+    id: `optimistic-${payload.mealId}-${item.fdc_id}-${index}`,
+    name: item.ingredient_name,
+    meal: payload.mealType,
+    calories: item.calories,
+    protein: item.protein,
+    carbs: item.carbs,
+    fat: item.fat,
+    vitamins: ZERO_VITAMINS,
+    minerals: ZERO_MINERALS,
+  }));
+
+  return [...optimisticItems, ...prevItems];
+}
+
 export default function HomeScreen() {
-  const [items] = useState<FoodItem[]>(SAMPLE_MEALS);
+  const [items, setItems] = useState<FoodItem[]>([]);
   const [expandedMeals, setExpandedMeals] = useState<Set<MealType>>(new Set());
   const [expandedReportSections, setExpandedReportSections] = useState<Set<string>>(new Set());
+  const [showAddMeal, setShowAddMeal] = useState(false);
 
   // AI Q&A States
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
   const [thought, setThought] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+
+  const handleDeleteItem = useCallback(async (item: FoodItem) => {
+    if (item.id.startsWith('optimistic-')) return; // not yet saved
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    await supabase.from('meal_items').delete().eq('item_id', item.id);
+  }, []);
+
+  const refreshMeals = useCallback(async () => {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      setItems([]);
+      return;
+    }
+
+    const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+
+    const { data: userMeals, error: mealsError } = await supabase
+      .from('user_meals')
+      .select('meal_id, meal_type')
+      .eq('user_id', user.id)
+      .eq('meal_date', today)
+      .order('meal_date', { ascending: false });
+
+    if (mealsError || !userMeals) {
+      console.error('Failed to fetch user meals for stats:', mealsError?.message);
+      return;
+    }
+
+    const mealRows = userMeals as UserMealRow[];
+    if (mealRows.length === 0) {
+      return;
+    }
+
+    const mealTypeById = new Map(mealRows.map((meal) => [meal.meal_id, meal.meal_type]));
+    const mealIds = mealRows.map((meal) => meal.meal_id);
+
+    const { data: mealItems, error: itemsError } = await supabase
+      .from('meal_items')
+      .select('item_id, meal_id, fdc_id, quantity, ingredient_name')
+      .in('meal_id', mealIds)
+      .order('meal_id', { ascending: false });
+
+    if (itemsError || !mealItems) {
+      console.error('Failed to fetch meal items for stats:', itemsError?.message);
+      return;
+    }
+
+    const itemRows = mealItems as MealItemRow[];
+    const fdcIds = [...new Set(itemRows.map((item) => item.fdc_id).filter((id): id is number => typeof id === 'number'))];
+
+    const nutrientByFdcId = new Map<number, FoodNutrientRow>();
+    if (fdcIds.length > 0) {
+      const { data: nutrientRows, error: nutrientsError } = await supabase
+        .from('food_nutrients')
+        .select('fdc_id, display_name, calories, protein, carbs, fat')
+        .in('fdc_id', fdcIds);
+
+      if (!nutrientsError && nutrientRows) {
+        for (const nutrient of nutrientRows as FoodNutrientRow[]) {
+          nutrientByFdcId.set(nutrient.fdc_id, nutrient);
+        }
+      } else if (nutrientsError) {
+        console.warn('Failed to fetch food_nutrients for stats fallback:', nutrientsError.message);
+      }
+    }
+
+    // ── Fetch USDA vitamins & minerals via nutrient name join (values per 100 g)
+    const vitaminsByFdcId = new Map<number, Vitamins>();
+    const mineralsByFdcId = new Map<number, Minerals>();
+
+    if (fdcIds.length > 0) {
+      // Step 1: get fdc_id → nutrient_id → amount rows
+      const { data: usdaRows, error: usdaError } = await supabase
+        .from('USDA_food_nutrient')
+        .select('fdc_id, nutrient_id, amount')
+        .in('fdc_id', fdcIds);
+
+      if (usdaError) {
+        console.error('USDA_food_nutrient fetch error:', usdaError.message);
+      } else if (usdaRows && usdaRows.length > 0) {
+        // Step 2: get nutrient names by id
+        const nutrientIds = [...new Set((usdaRows as UsdaFoodNutrientRow[]).map(r => r.nutrient_id))];
+        const { data: nutrientNameRows, error: nameError } = await supabase
+          .from('USDA_nutrients')
+          .select('id, name')
+          .in('id', nutrientIds);
+
+        if (nameError) {
+          console.error('USDA_nutrients fetch error:', nameError.message);
+        } else if (nutrientNameRows) {
+          const nameById = new Map<number, string>(
+            (nutrientNameRows as UsdaNutrientRow[]).map(r => [r.id, r.name])
+          );
+
+          const vitAccum = new Map<number, Partial<Vitamins>>();
+          const minAccum = new Map<number, Partial<Minerals>>();
+
+          for (const row of usdaRows as UsdaFoodNutrientRow[]) {
+            const nutrientName = nameById.get(row.nutrient_id);
+            if (!nutrientName) continue;
+            const mapped = nutrientNameToField(nutrientName);
+            if (!mapped) continue;
+
+            if (mapped.kind === 'vitamin') {
+              if (!vitAccum.has(row.fdc_id)) vitAccum.set(row.fdc_id, {});
+              vitAccum.get(row.fdc_id)![mapped.field] = row.amount ?? 0;
+            } else {
+              if (!minAccum.has(row.fdc_id)) minAccum.set(row.fdc_id, {});
+              minAccum.get(row.fdc_id)![mapped.field] = row.amount ?? 0;
+            }
+          }
+
+          for (const [fdcId, partial] of vitAccum) {
+            vitaminsByFdcId.set(fdcId, { ...ZERO_VITAMINS, ...partial });
+          }
+          for (const [fdcId, partial] of minAccum) {
+            mineralsByFdcId.set(fdcId, { ...ZERO_MINERALS, ...partial });
+          }
+        }
+      }
+    }
+
+    const mappedItems: FoodItem[] = itemRows.map((item, index) => {
+      const qty = item.quantity ?? 1;
+      const nutrient = item.fdc_id != null ? nutrientByFdcId.get(item.fdc_id) : undefined;
+
+      // All macros come from food_nutrients (per-portion values)
+      const calories = Math.round((nutrient?.calories ?? 0) * qty);
+      const protein  = Math.round((nutrient?.protein  ?? 0) * qty);
+      const carbs    = Math.round((nutrient?.carbs    ?? 0) * qty);
+      const fat      = Math.round((nutrient?.fat      ?? 0) * qty);
+
+      // USDA amounts are per 100 g; scale by qty (servings)
+      const vitMin_scale = qty;
+
+      const rawVit = item.fdc_id != null ? vitaminsByFdcId.get(item.fdc_id) : undefined;
+      const rawMin = item.fdc_id != null ? mineralsByFdcId.get(item.fdc_id) : undefined;
+
+      const vitamins: Vitamins = rawVit ? {
+        vitaminA:  rawVit.vitaminA  * vitMin_scale,
+        vitaminB1: rawVit.vitaminB1 * vitMin_scale,
+        vitaminB2: rawVit.vitaminB2 * vitMin_scale,
+        vitaminB3: rawVit.vitaminB3 * vitMin_scale,
+        vitaminB5: rawVit.vitaminB5 * vitMin_scale,
+        vitaminB6: rawVit.vitaminB6 * vitMin_scale,
+        vitaminB12:rawVit.vitaminB12* vitMin_scale,
+        folate:    rawVit.folate    * vitMin_scale,
+        vitaminC:  rawVit.vitaminC  * vitMin_scale,
+        vitaminD:  rawVit.vitaminD  * vitMin_scale,
+        vitaminE:  rawVit.vitaminE  * vitMin_scale,
+        vitaminK:  rawVit.vitaminK  * vitMin_scale,
+      } : ZERO_VITAMINS;
+
+      const minerals: Minerals = rawMin ? {
+        calcium:    rawMin.calcium    * vitMin_scale,
+        copper:     rawMin.copper     * vitMin_scale,
+        iron:       rawMin.iron       * vitMin_scale,
+        magnesium:  rawMin.magnesium  * vitMin_scale,
+        manganese:  rawMin.manganese  * vitMin_scale,
+        phosphorus: rawMin.phosphorus * vitMin_scale,
+        selenium:   rawMin.selenium   * vitMin_scale,
+        sodium:     rawMin.sodium     * vitMin_scale,
+        zinc:       rawMin.zinc       * vitMin_scale,
+      } : ZERO_MINERALS;
+
+      return {
+        id: item.item_id,
+        name: nutrient?.display_name ?? item.ingredient_name ?? 'Food item',
+        meal: normalizeMealType(mealTypeById.get(item.meal_id) ?? null),
+        calories,
+        protein,
+        carbs,
+        fat,
+        vitamins,
+        minerals,
+      };
+    });
+
+    setItems(mappedItems);
+  }, []);
+
+  useEffect(() => {
+    refreshMeals();
+  }, [refreshMeals]);
+
+  useEffect(() => {
+    if (!showAddMeal) {
+      refreshMeals();
+    }
+  }, [showAddMeal, refreshMeals]);
 
   const handleAskAI = async () => {
     if (!question.trim()) return;
@@ -193,9 +501,9 @@ export default function HomeScreen() {
     >
       {/* Title and Add Button */}
       <View style={styles.titleContainer}>
-        <ThemedText type="title">Today's Stats</ThemedText>
+        <ThemedText type="title" style={{ color: '#ffffff' }}>Today's Stats</ThemedText>
         <TouchableOpacity
-          onPress={() => alert('Add food (placeholder)')}
+          onPress={() => setShowAddMeal(true)}
           activeOpacity={0.8}
           style={styles.addButton}
         >
@@ -216,9 +524,17 @@ export default function HomeScreen() {
         items={items}
         expandedMeals={expandedMeals}
         onToggleMeal={(meal) => toggleMeal(meal, expandedMeals, setExpandedMeals)}
+        onDeleteItem={handleDeleteItem}
         onSelectItem={(item) => router.push({
           pathname: '/(modals)/food-modal',
-          params: { foodId: item.id }
+          params: {
+            foodId: item.id,
+            foodName: item.name,
+            calories: String(item.calories),
+            protein: String(item.protein),
+            carbs: String(item.carbs),
+            fat: String(item.fat),
+          }
         })} />
 
       {/* Nutrient Report label */}
@@ -278,6 +594,17 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </ThemedView>
+
+      <AddMealModal
+        visible={showAddMeal}
+        onClose={() => setShowAddMeal(false)}
+        onSuccess={(payload) => {
+          if (payload) {
+            setItems((prev) => appendSavedItems(prev, payload));
+          }
+          refreshMeals();
+        }}
+      />
 
     </ParallaxScrollView>
   );
