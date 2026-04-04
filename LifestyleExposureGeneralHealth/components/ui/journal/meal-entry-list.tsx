@@ -7,7 +7,7 @@ import {
   ActivityIndicator,
   useColorScheme,
 } from 'react-native';
-import { MealEntry } from '@/types/journal';
+import { MealEntry } from '@/types/diets-meals';
 import { MealEntryCard } from './meal-entry-card';
 import { ThemedText } from '@/components/themed-text';
 

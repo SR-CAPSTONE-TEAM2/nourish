@@ -7,7 +7,7 @@ import {
   Text,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Diet, AVAILABLE_MEAL_TYPES } from '@/types/journal';
+import { Diet, AVAILABLE_MEAL_TYPES } from '@/types/diets-meals';
 import { useTheme } from '@/context/theme-context';
 
 interface DietCardProps {

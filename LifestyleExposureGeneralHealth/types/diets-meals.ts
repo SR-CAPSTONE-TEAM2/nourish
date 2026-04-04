@@ -1,4 +1,4 @@
-// types/journal.ts
+// types/diets-meals.ts
 export type MealType =
   | 'breakfast'
   | 'brunch'
@@ -53,10 +53,57 @@ export interface MealEntry {
   createdAt: string;
 }
 
+export interface TemplateMeal {
+  id: string;
+  meal_id?: string;
+  name: string;
+  meal_image?: string | null;
+  ingredients: SelectedIngredient[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  rating: number | null;
+  isVegetarian?: boolean;
+}
+
+export interface FoodResult {
+  fdc_id: number;
+  ingredient_name: string;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  amount: number | null;
+  unit: string | null;
+  modifier: string | null;
+}
+
+export interface SelectedIngredient extends FoodResult {
+  qty: number;
+}
+
 export interface JournalState {
   entries: MealEntry[];
   isLoading: boolean;
   error: string | null;
+}
+
+export interface DietMealRow {
+  id: string;
+  meal_type: string;
+  user_meals: {
+    meal_id: string;
+    meal_name: string | null;
+    meal_type: string;
+    total_calories: number;
+    total_protein: number;
+    total_fat: number;
+    total_carbs: number;
+    meal_rating: number | null;
+    meal_image: string | null;
+    meal_items: { ingredient_name: string }[];
+  };
 }
 
 export interface Diet {
@@ -65,15 +112,18 @@ export interface Diet {
   diet_name: string;
   description?: string;
   meal_structure: MealType[];
+  meal_descriptions?: Partial<Record<MealType, string>>;
+  diet_meals?: DietMealRow[];   // ← add this
   is_active: boolean;
   created_at: string;
   updated_at?: string;
 }
-
 export interface CreateDietInput {
   diet_name: string;
   description?: string;
   meal_structure: string[];
+  meal_descriptions?: Partial<Record<MealType, string>>;
+  meal_entries?: Record<string, TemplateMeal[]>;
 }
 
 export interface UpdateDietInput {
