@@ -6,7 +6,7 @@ import { ThemedView } from '@/components/themed-view';
 import { CreateDietForm } from '@/components/ui/journal/create-diet-form';
 import { useUserDiet } from '@/hooks/useUserDiet';
 import { useDietMeals } from '@/hooks/useDietMeals';
-import { CreateDietInput, Diet, TemplateMeal } from '@/types/journal';
+import { CreateDietInput, Diet, TemplateMeal } from '@/types/diets-meals';
 
 export default function CreateDietScreen() {
   const router = useRouter();

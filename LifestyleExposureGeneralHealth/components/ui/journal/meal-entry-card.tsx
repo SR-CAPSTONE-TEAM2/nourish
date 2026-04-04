@@ -9,7 +9,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MealEntry } from '@/types/journal';
+import { MealEntry } from '@/types/diets-meals';
 import { MEAL_TYPES, MOOD_RATINGS, PHYSICAL_FEELINGS, EMOTIONAL_FEELINGS } from '@/constants/journal';
 import { ThemedText } from '@/components/themed-text';
 

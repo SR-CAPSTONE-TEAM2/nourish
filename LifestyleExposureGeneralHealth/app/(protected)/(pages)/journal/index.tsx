@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { MealJournalModal } from '@/app/(protected)/(modals)/meal-journal-modal';
-import { AVAILABLE_MEAL_TYPES, TemplateMeal } from '@/types/journal';
+import { AVAILABLE_MEAL_TYPES, TemplateMeal } from '@/types/diets-meals';
 import { useUserDiet } from '@/hooks/useUserDiet';
 import { useRouter } from 'expo-router';
 
@@ -181,6 +181,7 @@ export default function JournalScreen() {
         id: row.id,
         meal_id: m.meal_id,
         name: m.meal_name || m.meal_type,
+        meal_image: m.meal_image ?? null,
         ingredients: m.meal_items?.map((i) => ({
           fdc_id: 0,
           ingredient_name: i.ingredient_name,
@@ -215,30 +216,19 @@ export default function JournalScreen() {
   );
 
   const handleMealPress = (meal: TemplateMeal, mealType: { key: string; label: string; icon: string }) => {
+    // Guard against empty diets (diet has no meal)
+    if (!meal.meal_id) return;
     setSelectedMeal(meal);
     setSelectedMealType(mealType);
   };
 
   const handleAddPress = (mealType: { key: string; label: string; icon: string }) => {
-    // For now, open modal with first meal or create empty state
-    const meals = mealEntries[mealType.key] || [];
-    if (meals.length > 0) {
-      setSelectedMeal(meals[0]);
-    } else {
-      // Create a placeholder for new entry
-      setSelectedMeal({
-        id: 'new',
-        meal_id: '',
-        name: mealType.label,
-        ingredients: [],
-        totalCalories: 0,
-        totalProtein: 0,
-        totalCarbs: 0,
-        totalFat: 0,
-        rating: null,
+    if (activeDiet) {
+      router.push({
+        pathname: '/(protected)/(pages)/journal/diets-edit',
+        params: { dietId: activeDiet.diet_id },
       });
     }
-    setSelectedMealType(mealType);
   };
 
   const handleCloseModal = () => {

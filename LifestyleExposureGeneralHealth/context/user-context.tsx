@@ -3,7 +3,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from 'rea
 import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { UserProfile, Meal, Metric } from '@/types/types';
-import { Diet } from '@/types/journal';
+import { Diet } from '@/types/diets-meals';
 
 interface UserContextType {
   user: User | null;

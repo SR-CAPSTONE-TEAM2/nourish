@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Diet, CreateDietInput, UpdateDietInput } from '@/types/journal';
+import { Diet, CreateDietInput, UpdateDietInput } from '@/types/diets-meals';
 import { useUser } from '@/context/user-context';
 
 export function useUserDiet() {

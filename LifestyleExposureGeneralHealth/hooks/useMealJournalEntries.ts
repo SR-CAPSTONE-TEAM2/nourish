@@ -97,6 +97,7 @@ export function useMealJournalEntries(mealId: string | null | undefined) {
   }, [user?.id]);
 
   useEffect(() => {
+    setEntries([]);
     fetchEntries();
   }, [fetchEntries]);
 

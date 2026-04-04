@@ -12,7 +12,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MealType, MoodRating, PhysicalFeeling, EmotionalFeeling, MealEntry, TemplateMeal } from '@/types/journal';
+import { MealType, MoodRating, PhysicalFeeling, EmotionalFeeling, MealEntry, TemplateMeal } from '@/types/diets-meals';
 import { MealTypeSelector } from '@/components/ui/journal/meal-selector';
 import {
   MoodRatingSelector,

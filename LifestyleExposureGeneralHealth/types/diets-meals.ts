@@ -1,4 +1,4 @@
-// types/journal.ts
+// types/diets-meals.ts
 export type MealType =
   | 'breakfast'
   | 'brunch'
@@ -57,6 +57,7 @@ export interface TemplateMeal {
   id: string;
   meal_id?: string;
   name: string;
+  meal_image?: string | null;
   ingredients: SelectedIngredient[];
   totalCalories: number;
   totalProtein: number;

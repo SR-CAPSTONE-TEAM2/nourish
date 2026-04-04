@@ -21,9 +21,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { AVAILABLE_MEAL_TYPES, CreateDietInput, MealType } from '@/types/journal';
+import { AVAILABLE_MEAL_TYPES, CreateDietInput, MealType } from '@/types/diets-meals';
 import { supabase } from '@/lib/supabase';
-import { TemplateMeal, FoodResult, SelectedIngredient } from '@/types/journal';
+import { TemplateMeal, FoodResult, SelectedIngredient } from '@/types/diets-meals';
 
 interface CreateDietFormProps {
   onSubmit: (diet: CreateDietInput) => Promise<void>;

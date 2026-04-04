@@ -7,7 +7,7 @@ import {
   StyleSheet,
   useColorScheme,
 } from 'react-native';
-import { MoodRating, PhysicalFeeling, EmotionalFeeling } from '@/types/journal';
+import { MoodRating, PhysicalFeeling, EmotionalFeeling } from '@/types/diets-meals';
 import {
   MOOD_RATINGS,
   PHYSICAL_FEELINGS,

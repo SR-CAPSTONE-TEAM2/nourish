@@ -1,5 +1,6 @@
 // (protected)/modals/meal-journal-modal.tsx
 import React, { useState, useRef, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 import {
   View,
   Modal,
@@ -17,8 +18,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
-import { TemplateMeal } from '@/types/journal';
+import { TemplateMeal } from '@/types/diets-meals';
 import { useMealJournalEntries, JournalEntry } from '@/hooks/useMealJournalEntries';
+import { useUserDiet } from '@/hooks/useUserDiet';
 
 
 interface MealJournalModalProps {
@@ -189,6 +191,8 @@ export function MealJournalModal({
   const isDark = colorScheme === 'dark';
 
   const { entries, addEntry, deleteEntry, isLoading } = useMealJournalEntries(meal?.meal_id);
+  const [rating, setRating] = useState<number | null>(meal?.rating ?? null);
+  const { refreshDiets } = useUserDiet();
   const [newEntryText, setNewEntryText] = useState('');
   const [isInputExpanded, setIsInputExpanded] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -231,8 +235,10 @@ export function MealJournalModal({
     if (!visible) {
       setNewEntryText('');
       setIsInputExpanded(false);
+    } else {
+      setRating(meal?.rating ?? null);
     }
-  }, [visible]);
+  }, [visible, meal]);
 
   const handleAddEntry = async () => {
     if (!newEntryText.trim()) return;
@@ -252,6 +258,23 @@ export function MealJournalModal({
     Keyboard.dismiss();
   };
 
+  const handleRatingPress = async (star: number) => {
+    if (!meal?.meal_id) return;
+    const newRating = rating === star ? null : star;
+    setRating(newRating); // optimistic
+
+    const { error } = await supabase
+      .from('user_meals')
+      .update({ meal_rating: newRating })
+      .eq('meal_id', meal.meal_id);
+
+    if (error) {
+      console.error('Failed to save rating:', error);
+      setRating(rating); // revert on failure
+    } else {
+      await refreshDiets(); // sync back to parent
+    }
+  };
   if (!meal || !mealType) return null;
 
   // Group entries by date
@@ -365,18 +388,21 @@ export function MealJournalModal({
               </View>
 
               {/* Rating */}
-              {meal.rating && (
-                <View style={styles.ratingContainer}>
-                  {[1, 2, 3, 4, 5].map((star) => (
+              <View style={styles.ratingContainer}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() => handleRatingPress(star)}
+                    hitSlop={6}
+                  >
                     <Ionicons
-                      key={star}
-                      name={meal.rating && meal.rating >= star ? 'star' : 'star-outline'}
-                      size={14}
-                      color={meal.rating && meal.rating >= star ? '#fbbf24' : isDark ? '#444' : '#CCC'}
+                      name={rating && rating >= star ? 'star' : 'star-outline'}
+                      size={18}                              // ← slightly larger since now interactive
+                      color={rating && rating >= star ? '#fbbf24' : isDark ? '#444' : '#CCC'}
                     />
-                  ))}
-                </View>
-              )}
+                  </TouchableOpacity>
+                ))}
+              </View>
 
               {/* Ingredients count */}
               {meal.ingredients && meal.ingredients.length > 0 && (
