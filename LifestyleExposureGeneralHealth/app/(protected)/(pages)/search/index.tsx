@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { analyzeFoodItem, isOllamaConfigured, type FoodAnalysisResult } from '@/lib/ollama'
 import ParallaxScrollView from '@/components/parallax-scroll-view'
 
 type Chemical = {
@@ -31,6 +32,32 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
+
+  // Ollama food analysis state
+  const [foodQuery, setFoodQuery] = useState('')
+  const [analysisResult, setAnalysisResult] = useState<FoodAnalysisResult | null>(null)
+  const [analysisLoading, setAnalysisLoading] = useState(false)
+  const [analysisError, setAnalysisError] = useState<string | null>(null)
+  const [analysisSearched, setAnalysisSearched] = useState(false)
+
+  const handleFoodAnalysis = async () => {
+    const trimmed = foodQuery.trim()
+    if (!trimmed) return
+
+    setAnalysisLoading(true)
+    setAnalysisError(null)
+    setAnalysisResult(null)
+    setAnalysisSearched(true)
+
+    try {
+      const result = await analyzeFoodItem(trimmed)
+      setAnalysisResult(result)
+    } catch (err: any) {
+      setAnalysisError(err.message ?? 'Failed to analyze food item')
+    } finally {
+      setAnalysisLoading(false)
+    }
+  }
 
   const handleSearch = async () => {
     const trimmed = query.trim()
@@ -112,7 +139,270 @@ export default function SearchScreen() {
             </p>
           </div>
 
-          {/* Search Bar */}
+          {/* AI Food Analysis Section */}
+          <div style={{
+            background: '#1e1e1e',
+            border: '1px solid #2a2a2a',
+            borderRadius: '20px',
+            padding: '24px',
+            marginBottom: '32px',
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '6px',
+            }}>
+              <span style={{ fontSize: '14px', fontWeight: '600', color: '#aaa', letterSpacing: '0.04em' }}>
+                AI FOOD ANALYSIS
+              </span>
+              <span style={{
+                padding: '2px 8px',
+                borderRadius: '6px',
+                fontSize: '10px',
+                fontWeight: '600',
+                background: isOllamaConfigured() ? 'rgba(52, 211, 153, 0.15)' : 'rgba(251, 113, 133, 0.15)',
+                color: isOllamaConfigured() ? '#34d399' : '#fb7185',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+              }}>
+                {isOllamaConfigured() ? 'Connected' : 'Not configured'}
+              </span>
+            </div>
+            <p style={{ color: '#555', fontSize: '13px', margin: '0 0 16px 0' }}>
+              Enter a food item to analyze its ingredients for chemical and pesticide risks
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input
+                className="search-input"
+                type="text"
+                placeholder="e.g. Big Mac, organic banana, store-bought milk..."
+                value={foodQuery}
+                onChange={(e) => setFoodQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleFoodAnalysis()}
+                disabled={!isOllamaConfigured()}
+                style={{
+                  flex: 1,
+                  height: '48px',
+                  background: '#141414',
+                  border: '1px solid #2a2a2a',
+                  borderRadius: '14px',
+                  padding: '0 18px',
+                  fontSize: '14px',
+                  fontFamily: "'DM Sans', sans-serif",
+                  color: '#e0e0e0',
+                  outline: 'none',
+                  opacity: isOllamaConfigured() ? 1 : 0.5,
+                }}
+              />
+              <button
+                className="search-btn"
+                onClick={handleFoodAnalysis}
+                disabled={!isOllamaConfigured() || analysisLoading}
+                style={{
+                  height: '48px',
+                  padding: '0 24px',
+                  background: '#34d399',
+                  border: 'none',
+                  borderRadius: '14px',
+                  color: '#141414',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  fontFamily: "'DM Sans', sans-serif",
+                  cursor: isOllamaConfigured() ? 'pointer' : 'not-allowed',
+                  opacity: isOllamaConfigured() ? 1 : 0.5,
+                }}
+              >
+                Analyze
+              </button>
+            </div>
+
+            {/* Analysis Loading */}
+            {analysisLoading && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '20px 0',
+                justifyContent: 'center',
+              }}>
+                <div style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: '50%',
+                  border: '3px solid #333',
+                  borderTopColor: '#34d399',
+                  animation: 'spin 0.8s linear infinite',
+                }} />
+                <span style={{ color: '#666', fontSize: '13px' }}>
+                  Analyzing with MedGemma...
+                </span>
+              </div>
+            )}
+
+            {/* Analysis Error */}
+            {analysisError && (
+              <div style={{
+                marginTop: '16px',
+                padding: '14px 18px',
+                background: 'rgba(251, 113, 133, 0.1)',
+                border: '1px solid rgba(251, 113, 133, 0.2)',
+                borderRadius: '12px',
+                color: '#fb7185',
+                fontSize: '13px',
+              }}>
+                {analysisError}
+              </div>
+            )}
+
+            {/* Analysis Results */}
+            {analysisResult && (
+              <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                {/* Overall Score & Summary */}
+                <div style={{
+                  display: 'flex',
+                  gap: '14px',
+                  flexWrap: 'wrap',
+                }}>
+                  <div style={{
+                    background: '#141414',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '16px',
+                    padding: '18px 22px',
+                    minWidth: '140px',
+                  }}>
+                    <div style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                      Risk Score
+                    </div>
+                    <span style={{
+                      fontSize: '28px',
+                      fontWeight: '700',
+                      fontFamily: "'Outfit', sans-serif",
+                      color: analysisResult.overall_risk_score >= 3 ? '#34d399'
+                        : analysisResult.overall_risk_score >= -2 ? '#f59e0b'
+                        : '#fb7185',
+                    }}>
+                      {analysisResult.overall_risk_score > 0 ? '+' : ''}{analysisResult.overall_risk_score}
+                    </span>
+                    <span style={{ fontSize: '12px', color: '#555', marginLeft: '4px' }}>/10</span>
+                  </div>
+                  <div style={{
+                    background: '#141414',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '16px',
+                    padding: '18px 22px',
+                    flex: 1,
+                    minWidth: '200px',
+                  }}>
+                    <div style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '6px' }}>
+                      Summary
+                    </div>
+                    <div style={{ fontSize: '14px', color: '#bbb', lineHeight: '1.5' }}>
+                      {analysisResult.summary}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ingredients Breakdown */}
+                <div style={{ fontSize: '12px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  Ingredients ({analysisResult.ingredients.length})
+                </div>
+                {analysisResult.ingredients.map((ing, i) => (
+                  <div key={i} style={{
+                    background: '#141414',
+                    border: '1px solid #2a2a2a',
+                    borderRadius: '14px',
+                    padding: '16px 20px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#e0e0e0' }}>
+                        {ing.name}
+                      </span>
+                      <span style={{
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        padding: '2px 10px',
+                        borderRadius: '8px',
+                        background: ing.risk_score >= 3 ? 'rgba(52, 211, 153, 0.15)'
+                          : ing.risk_score >= -2 ? 'rgba(245, 158, 11, 0.15)'
+                          : 'rgba(251, 113, 133, 0.15)',
+                        color: ing.risk_score >= 3 ? '#34d399'
+                          : ing.risk_score >= -2 ? '#f59e0b'
+                          : '#fb7185',
+                      }}>
+                        {ing.risk_score > 0 ? '+' : ''}{ing.risk_score}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '13px', color: '#777', lineHeight: '1.4', marginBottom: '10px' }}>
+                      {ing.reasoning}
+                    </div>
+
+                    {ing.chemicals.length > 0 && (
+                      <div style={{ marginBottom: '6px' }}>
+                        <span style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          Chemicals:{' '}
+                        </span>
+                        <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {ing.chemicals.map((c) => (
+                            <span key={c} style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              background: 'rgba(139, 92, 246, 0.15)',
+                              color: '#a78bfa',
+                            }}>
+                              {c}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+
+                    {ing.pesticides.length > 0 && (
+                      <div>
+                        <span style={{ fontSize: '11px', color: '#666', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          Pesticides:{' '}
+                        </span>
+                        <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {ing.pesticides.map((p) => (
+                            <span key={p} style={{
+                              padding: '2px 8px',
+                              borderRadius: '6px',
+                              fontSize: '12px',
+                              background: 'rgba(249, 115, 22, 0.15)',
+                              color: '#f97316',
+                            }}>
+                              {p}
+                            </span>
+                          ))}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Divider */}
+          <div style={{
+            borderTop: '1px solid #2a2a2a',
+            marginBottom: '28px',
+          }} />
+
+          {/* Database Search Header */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '14px', fontWeight: '600', color: '#aaa', letterSpacing: '0.04em' }}>
+              DATABASE LOOKUP
+            </div>
+            <p style={{ color: '#555', fontSize: '13px', margin: '4px 0 0 0' }}>
+              Search chemicals and pesticides directly in the database
+            </p>
+          </div>
+
+          {/* Database Search Bar */}
           <div style={{
             display: 'flex',
             gap: '10px',
