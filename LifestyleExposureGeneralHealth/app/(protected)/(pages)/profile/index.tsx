@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { useColorScheme, StyleSheet, TouchableOpacity, TextInput, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { HorizCardList } from '@/components/ui/carousels/horiz-card-list';
@@ -10,10 +10,13 @@ import { DefaultCard } from '@/components/ui/cards/default-card';
 import { OptionsRow, ProfileOptionsContainer } from '@/components/ui/containers/profile-options-container';
 import { UserProfile, Meal, Metric } from '@/types/types';
 import { useUser } from '@/context/user-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 
 export default function ProfileScreen() {
   const colorScheme = useColorScheme();
   const iconColor = colorScheme === 'dark' ? 'white' : 'black';
+  const insets = useSafeAreaInsets();
 
   const [storeMealsDays, setStoreMealsDays] = useState('60 days');
 
@@ -25,46 +28,49 @@ export default function ProfileScreen() {
       <Stack.Screen
         options={{
           headerShown: false,
-          headerRight: () => (
-            <TouchableOpacity
-              onPress={() => router.push('/(protected)/(pages)/profile/settings')}
-              style={{ marginRight: 24 }}>
-              <Ionicons name="settings-outline" size={24} color={iconColor} />
-            </TouchableOpacity >
-          ),
         }}
       />
-      < ParallaxScrollView
-        headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}>
-        <ThemedText type="title">
-          {`Hi, \n${profile?.first_name ?? profile?.username ?? 'there'} 👋`}
-        </ThemedText>
+      <View style={{ flex: 1, backgroundColor: '#1C1C2E' }}>
+        <View style={[styles.topBar, { paddingTop: insets.top }]}>
+          <TouchableOpacity
+            onPress={() => router.push('/(protected)/(pages)/profile/settings')}
+            style={styles.settingsButton}>
+            <Ionicons name="settings-outline" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
 
-        <HorizCardList
-          data={[{ id: 'ask-ai', title: 'Ask AI' }]}
-          renderCard={(item, onPress) => (
-            <DefaultCard data={item} onPress={onPress} />
-          )}
-          title="AI Assistant"
-          onCardPress={() => router.push('/(protected)/(pages)/profile/ask-ai')}
-          containerStyle={{ marginTop: 20 }}
-        />
+        <ParallaxScrollView
+          headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}>
+          <ThemedText type="title">
+            {`Hi, \n${profile?.first_name ?? profile?.username ?? 'there'} 👋`}
+          </ThemedText>
 
-        <ProfileOptionsContainer style={{ marginTop: 20 }}>
-          <OptionsRow
-            type="select"
-            label="Store Meals For"
-            value={storeMealsDays}
-            options={['7 days', '14 days', '30 days', '60 days', '90 days', 'Always']}
-            onSelect={setStoreMealsDays}
+          <HorizCardList
+            data={[{ id: 'ask-ai', title: 'Ask AI' }]}
+            renderCard={(item, onPress) => (
+              <DefaultCard data={item} onPress={onPress} />
+            )}
+            title="AI Assistant"
+            onCardPress={() => router.push('/(protected)/(pages)/profile/ask-ai')}
+            containerStyle={{ marginTop: 20 }}
           />
-          <OptionsRow
-            type="navigation"
-            label="View linked third-party apps"
-            onPress={() => router.push('/(protected)/(pages)/profile/linked-apps')}
-          />
-        </ProfileOptionsContainer>
-      </ParallaxScrollView >
+
+          <ProfileOptionsContainer style={{ marginTop: 20 }}>
+            <OptionsRow
+              type="select"
+              label="Store Meals For"
+              value={storeMealsDays}
+              options={['7 days', '14 days', '30 days', '60 days', '90 days', 'Always']}
+              onSelect={setStoreMealsDays}
+            />
+            <OptionsRow
+              type="navigation"
+              label="View linked third-party apps"
+              onPress={() => router.push('/(protected)/(pages)/profile/linked-apps')}
+            />
+          </ProfileOptionsContainer>
+        </ParallaxScrollView>
+      </View>
     </>
   );
 }
@@ -98,5 +104,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     textAlign: 'center',
     minWidth: 60,
+  },
+  topBar: {
+    backgroundColor: '#1C1C2E',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 24,
+    paddingBottom: 8,
+  },
+  settingsButton: {
+    padding: 8,
   },
 });
