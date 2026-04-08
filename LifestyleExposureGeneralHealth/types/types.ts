@@ -35,6 +35,7 @@ export type FoodItem = {
   protein: number;
   carbs: number;
   fat: number;
+  quantity: number;
   vitamins: Vitamins;
   minerals: Minerals;
 };

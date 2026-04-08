@@ -236,6 +236,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
   // ── Ingredient management
   function addIngredient(item: FoodResult) {
+    console.log('[AddMeal] fdc_id:', item.fdc_id, '|', item.ingredient_name, '| cal/100g:', item.calories, '| amount:', item.amount, '| unit:', item.unit, '| modifier:', item.modifier)
     setSelected(prev => {
       const exists = prev.find(s => s.fdc_id === item.fdc_id)
       if (exists) return prev.map(s => s.fdc_id === item.fdc_id ? { ...s, qty: s.qty + 1 } : s)
@@ -296,12 +297,11 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
       if (mealError || !mealRow) throw new Error(mealError?.message ?? 'Failed to create meal')
 
-      // 2. Insert each ingredient as a meal_item row
       const items = selected.map(s => ({
         meal_id: mealRow.meal_id,
         fdc_id: s.fdc_id,
         ingredient_name: s.ingredient_name,
-        quantity: s.qty,
+        quantity: s.amount ? (s.amount * s.qty) / 100 : s.qty,
       }))
 
       const { error: itemsError } = await supabase.from('meal_items').insert(items)
@@ -449,24 +449,43 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                     keyExtractor={item => String(item.fdc_id)}
                     keyboardShouldPersistTaps="always"
                     style={styles.dropdownList}
-                    renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.dropdownItem}
-                        onPress={() => addIngredient(item)}
-                      >
-                        <View style={styles.dropdownMain}>
-                          <Text style={styles.dropdownName} numberOfLines={2}>
-                            {item.ingredient_name}
-                          </Text>
-                          <Text style={styles.dropdownDetail}>{formatPortion(item)}</Text>
-                        </View>
-                        {item.calories != null && (
-                          <Text style={styles.dropdownCal}>
-                            {Math.round(item.calories * (item.amount ?? 100) / 100)} kcal
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    )}
+                    renderItem={({ item }) => {
+                      const portionCal = Math.round((item.calories ?? 0) * (item.amount ?? 100) / 100)
+                      const portionP   = Math.round((item.protein ?? 0) * (item.amount ?? 100) / 100)
+                      const portionC   = Math.round((item.carbs ?? 0) * (item.amount ?? 100) / 100)
+                      const portionF   = Math.round((item.fat ?? 0) * (item.amount ?? 100) / 100)
+                      const portionLabel = formatPortion(item)
+                      const isPer100g = !item.amount && !item.unit
+
+                      return (
+                        <TouchableOpacity
+                          style={styles.dropdownItem}
+                          onPress={() => addIngredient(item)}
+                        >
+                          <View style={styles.dropdownMain}>
+                            <Text style={styles.dropdownName} numberOfLines={2}>
+                              {item.ingredient_name}
+                            </Text>
+                            <Text style={styles.dropdownDetail}>
+                              {portionLabel}
+                              {isPer100g ? '' : ` · ${item.amount}g`}
+                            </Text>
+                            <Text style={styles.dropdownMacros}>
+                              P {portionP}g · C {portionC}g · F {portionF}g
+                            </Text>
+                          </View>
+                          {item.calories != null && (
+                            <View style={styles.dropdownCalContainer}>
+                              <Text style={styles.dropdownCal}>{portionCal}</Text>
+                              <Text style={styles.dropdownCalUnit}>kcal</Text>
+                              <Text style={styles.dropdownServingLabel}>
+                                {isPer100g ? 'per 100g' : 'per serving'}
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      )
+                    }}
                     ItemSeparatorComponent={() => <View style={styles.sep} />}
                     ListFooterComponent={
                       hasMore ? (
@@ -760,10 +779,29 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#555',
   },
+  dropdownMacros: {
+    fontSize: 11,
+    color: '#777',
+    marginTop: 1,
+  },
+  dropdownCalContainer: {
+    alignItems: 'flex-end',
+    minWidth: 50,
+  },
   dropdownCal: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
     color: '#f97316',
+  },
+  dropdownCalUnit: {
+    fontSize: 10,
+    color: '#f97316',
+    opacity: 0.7,
+  },
+  dropdownServingLabel: {
+    fontSize: 9,
+    color: '#888',
+    marginTop: 1,
   },
   sep: {
     height: 1,

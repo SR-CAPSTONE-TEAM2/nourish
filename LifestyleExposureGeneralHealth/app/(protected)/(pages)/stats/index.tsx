@@ -14,15 +14,6 @@ import { SummarySection } from '@/components/ui/meals/summary-section';
 import { MealSections, toggleMeal } from '@/components/ui/meals/meal-section';
 import { NutrientReport, toggleReportSection } from '@/components/ui/meals/nutrient-report';
 
-interface FoodNutrientRow {
-  fdc_id: number;
-  display_name: string | null;
-  calories: number | null;
-  protein: number | null;
-  carbs: number | null;
-  fat: number | null;
-}
-
 interface UsdaFoodNutrientRow {
   fdc_id: number;
   nutrient_id: number;
@@ -34,11 +25,25 @@ interface UsdaNutrientRow {
   name: string;
 }
 
-// Map a USDA nutrient name (lower-cased) to a Vitamins or Minerals field
-function nutrientNameToField(
-  name: string,
-): { kind: 'vitamin'; field: keyof Vitamins } | { kind: 'mineral'; field: keyof Minerals } | null {
+type MacroField = 'calories' | 'protein' | 'carbs' | 'fat';
+
+type NutrientMapping =
+  | { kind: 'vitamin'; field: keyof Vitamins }
+  | { kind: 'mineral'; field: keyof Minerals }
+  | { kind: 'macro'; field: MacroField };
+
+// Map a USDA nutrient name (lower-cased) to a Vitamins, Minerals, or macro field
+function nutrientNameToField(name: string, nutrientId?: number): NutrientMapping | null {
   const n = name.toLowerCase();
+  // Macros — use nutrient_id to distinguish kcal (1008) from kJ (2047)
+  if (n === 'energy') {
+    if (nutrientId === 1008) return { kind: 'macro', field: 'calories' };
+    return null; // skip kJ energy entry
+  }
+  if (n === 'protein') return { kind: 'macro', field: 'protein' };
+  if (n.includes('carbohydrate')) return { kind: 'macro', field: 'carbs' };
+  if (n === 'total lipid (fat)') return { kind: 'macro', field: 'fat' };
+  // Vitamins
   if (n.includes('vitamin a')) return { kind: 'vitamin', field: 'vitaminA' };
   if (n.includes('thiamin')) return { kind: 'vitamin', field: 'vitaminB1' };
   if (n.includes('riboflavin')) return { kind: 'vitamin', field: 'vitaminB2' };
@@ -51,6 +56,7 @@ function nutrientNameToField(
   if (n.includes('vitamin d')) return { kind: 'vitamin', field: 'vitaminD' };
   if (n.includes('vitamin e')) return { kind: 'vitamin', field: 'vitaminE' };
   if (n.includes('vitamin k')) return { kind: 'vitamin', field: 'vitaminK' };
+  // Minerals
   if (n.includes('calcium')) return { kind: 'mineral', field: 'calcium' };
   if (n.includes('copper')) return { kind: 'mineral', field: 'copper' };
   if (n.includes('iron')) return { kind: 'mineral', field: 'iron' };
@@ -123,6 +129,7 @@ function appendSavedItems(
     protein: item.protein,
     carbs: item.carbs,
     fat: item.fat,
+    quantity: item.quantity,
     vitamins: ZERO_VITAMINS,
     minerals: ZERO_MINERALS,
   }));
@@ -191,23 +198,9 @@ export default function HomeScreen() {
     const itemRows = mealItems as MealItemRow[];
     const fdcIds = [...new Set(itemRows.map((item) => item.fdc_id).filter((id): id is number => typeof id === 'number'))];
 
-    const nutrientByFdcId = new Map<number, FoodNutrientRow>();
-    if (fdcIds.length > 0) {
-      const { data: nutrientRows, error: nutrientsError } = await supabase
-        .from('food_nutrients')
-        .select('fdc_id, display_name, calories, protein, carbs, fat')
-        .in('fdc_id', fdcIds);
-
-      if (!nutrientsError && nutrientRows) {
-        for (const nutrient of nutrientRows as FoodNutrientRow[]) {
-          nutrientByFdcId.set(nutrient.fdc_id, nutrient);
-        }
-      } else if (nutrientsError) {
-        console.warn('Failed to fetch food_nutrients for stats fallback:', nutrientsError.message);
-      }
-    }
-
-    // ── Fetch USDA vitamins & minerals via nutrient name join (values per 100 g)
+    // ── Fetch all nutrient data from USDA tables (macros + vitamins + minerals)
+    // All values are per 100 g in the USDA tables.
+    const macrosByFdcId = new Map<number, { calories: number; protein: number; carbs: number; fat: number }>();
     const vitaminsByFdcId = new Map<number, Vitamins>();
     const mineralsByFdcId = new Map<number, Minerals>();
 
@@ -235,16 +228,20 @@ export default function HomeScreen() {
             (nutrientNameRows as UsdaNutrientRow[]).map(r => [r.id, r.name])
           );
 
+          const macroAccum = new Map<number, Partial<{ calories: number; protein: number; carbs: number; fat: number }>>();
           const vitAccum = new Map<number, Partial<Vitamins>>();
           const minAccum = new Map<number, Partial<Minerals>>();
 
           for (const row of usdaRows as UsdaFoodNutrientRow[]) {
             const nutrientName = nameById.get(row.nutrient_id);
             if (!nutrientName) continue;
-            const mapped = nutrientNameToField(nutrientName);
+            const mapped = nutrientNameToField(nutrientName, row.nutrient_id);
             if (!mapped) continue;
 
-            if (mapped.kind === 'vitamin') {
+            if (mapped.kind === 'macro') {
+              if (!macroAccum.has(row.fdc_id)) macroAccum.set(row.fdc_id, {});
+              macroAccum.get(row.fdc_id)![mapped.field] = row.amount ?? 0;
+            } else if (mapped.kind === 'vitamin') {
               if (!vitAccum.has(row.fdc_id)) vitAccum.set(row.fdc_id, {});
               vitAccum.get(row.fdc_id)![mapped.field] = row.amount ?? 0;
             } else {
@@ -253,6 +250,9 @@ export default function HomeScreen() {
             }
           }
 
+          for (const [fdcId, partial] of macroAccum) {
+            macrosByFdcId.set(fdcId, { calories: 0, protein: 0, carbs: 0, fat: 0, ...partial });
+          }
           for (const [fdcId, partial] of vitAccum) {
             vitaminsByFdcId.set(fdcId, { ...ZERO_VITAMINS, ...partial });
           }
@@ -265,13 +265,13 @@ export default function HomeScreen() {
 
     const mappedItems: FoodItem[] = itemRows.map((item, index) => {
       const qty = item.quantity ?? 1;
-      const nutrient = item.fdc_id != null ? nutrientByFdcId.get(item.fdc_id) : undefined;
+      const macros = item.fdc_id != null ? macrosByFdcId.get(item.fdc_id) : undefined;
 
-      // All macros come from food_nutrients (per-portion values)
-      const calories = Math.round((nutrient?.calories ?? 0) * qty);
-      const protein  = Math.round((nutrient?.protein  ?? 0) * qty);
-      const carbs    = Math.round((nutrient?.carbs    ?? 0) * qty);
-      const fat      = Math.round((nutrient?.fat      ?? 0) * qty);
+      // All values from USDA are per 100 g; scale by qty (servings)
+      const calories = Math.round((macros?.calories ?? 0) * qty);
+      const protein  = Math.round((macros?.protein  ?? 0) * qty);
+      const carbs    = Math.round((macros?.carbs    ?? 0) * qty);
+      const fat      = Math.round((macros?.fat      ?? 0) * qty);
 
       // USDA amounts are per 100 g; scale by qty (servings)
       const vitMin_scale = qty;
@@ -308,18 +308,22 @@ export default function HomeScreen() {
 
       return {
         id: item.item_id,
-        name: nutrient?.display_name ?? item.ingredient_name ?? 'Food item',
+        name: item.ingredient_name ?? 'Food item',
         meal: normalizeMealType(mealTypeById.get(item.meal_id) ?? null),
         calories,
         protein,
         carbs,
         fat,
+        quantity: item.quantity ?? 1,
         vitamins,
         minerals,
       };
     });
 
-    setItems(mappedItems);
+    // Only update state if we actually got items, to avoid wiping optimistic updates
+    if (mappedItems.length > 0) {
+      setItems(mappedItems);
+    }
   }, []);
 
   useEffect(() => {

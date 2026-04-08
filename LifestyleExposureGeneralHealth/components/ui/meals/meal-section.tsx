@@ -21,6 +21,7 @@ export const MealSections = ({ items, expandedMeals, onToggleMeal, onSelectItem,
         const mealItems = items.filter((i) => i.meal === meal);
         const isExpanded = expandedMeals.has(meal);
         const mealCalories = mealItems.reduce((sum, i) => sum + i.calories, 0);
+        const totalQty = mealItems.reduce((sum, i) => sum + (i.quantity ?? 1), 0);
         return (
           <ThemedView key={meal} style={styles.mealSection}>
             <TouchableOpacity
@@ -31,7 +32,7 @@ export const MealSections = ({ items, expandedMeals, onToggleMeal, onSelectItem,
               <View style={styles.mealHeaderLeft}>
                 <ThemedText type="subtitle" style={{ color: '#ffffff' }}>{meal}</ThemedText>
                 <ThemedText style={styles.itemCount}>
-                  {mealItems.length} item{mealItems.length !== 1 ? 's' : ''}
+                  {totalQty} item{totalQty !== 1 ? 's' : ''}
                 </ThemedText>
               </View>
               <View style={styles.mealHeaderRight}>
