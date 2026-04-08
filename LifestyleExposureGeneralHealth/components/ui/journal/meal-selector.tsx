@@ -5,7 +5,7 @@ import {
   StyleSheet,
   useColorScheme,
 } from 'react-native';
-import { MealType } from '@/types/journal';
+import { MealType } from '@/types/diets-meals';
 import { MEAL_TYPES } from '@/constants/journal';
 import { ThemedText } from '@/components/themed-text';
 

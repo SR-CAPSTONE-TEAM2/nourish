@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   ScrollView,
@@ -8,36 +8,24 @@ import {
   View,
   ActivityIndicator,
   Platform,
-} from 'react-native'
-import { supabase } from '@/lib/supabase'
-import { useRouter } from 'expo-router'
-import { UserProfile, Meal, Metric } from '@/types/types'
-import { LineChart, BarChart } from 'react-native-chart-kit'
-import AddMealModal from '../../(modals)/addmealmodal'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+} from 'react-native';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'expo-router';
+import { UserProfile, Meal, Metric } from '@/types/types';
+import { LineChart, BarChart } from 'react-native-chart-kit';
+import AddMealModal from '../../(modals)/addmealmodal';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useUserDiet } from '@/hooks/useUserDiet';
+import { AVAILABLE_MEAL_TYPES, TemplateMeal } from '@/types/diets-meals';
+import { Image } from 'expo-image';
+import { useUser } from '@/context/user-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useColorScheme } from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const CHART_WIDTH = SCREEN_WIDTH - 80
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-// ─── Palette ──────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0d0d0d',
-  surface: '#141414',
-  surfaceHi: '#1a1a1a',
-  border: '#222',
-  borderHi: '#2e2e2e',
-  textPrime: '#f2f2f2',
-  textSub: '#5a5a5a',
-  textMid: '#888',
-  orange: '#f97316',
-  blue: '#60a5fa',
-  green: '#34d399',
-  purple: '#a78bfa',
-  rose: '#fb7185',
-  amber: '#fbbf24',
-}
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
 
@@ -82,17 +70,6 @@ function getTotalCaloriesToday(meals: Meal[]): number {
     .reduce((sum, m) => sum + (m.total_calories ?? 0), 0)
 }
 
-// ─── Chart config ─────────────────────────────────────────────────────────────
-
-const baseChartConfig = {
-  backgroundGradientFrom: C.surfaceHi,
-  backgroundGradientTo: C.surfaceHi,
-  decimalPlaces: 0,
-  color: (opacity = 1) => `rgba(242, 242, 242, ${opacity})`,
-  labelColor: (opacity = 1) => `rgba(90, 90, 90, ${opacity})`,
-  propsForBackgroundLines: { stroke: '#1f1f1f' },
-  propsForDots: { r: '3', strokeWidth: '0' },
-}
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
@@ -129,17 +106,20 @@ function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }
 // ─── Meal Row ─────────────────────────────────────────────────────────────────
 
 const MEAL_COLORS: Record<string, string> = {
-  breakfast: C.amber,
-  lunch: C.green,
-  dinner: C.blue,
-  snack: C.orange,
-}
+  breakfast: '#fbbf24',  // amber
+  lunch: '#34d399',  // green
+  dinner: '#60a5fa',  // blue
+  snack: '#f97316',  // orange}
+};
 
-function MealRow({ meal }: { meal: Meal }) {
+function MealRow({ meal, dark }: { meal: Meal, dark: boolean }) {
   const type = (meal.meal_type ?? 'meal').toLowerCase()
-  const accent = MEAL_COLORS[type] ?? C.textMid
+  const accent = MEAL_COLORS[type] ?? '#888888';
   return (
-    <View style={styles.mealRow}>
+    <View style={[
+      styles.mealRow,
+      { backgroundColor: dark ? '#252536' : '#F8F8FA', borderColor: dark ? '#3D3D4D' : '#EBEBEB' },
+    ]}>
       <View style={[styles.mealDot, { backgroundColor: accent }]} />
       <View style={styles.mealInfo}>
         <Text style={styles.mealType}>{meal.meal_type ?? 'Meal'}</Text>
@@ -183,11 +163,83 @@ function TabButton({
   )
 }
 
+// ---- Diet UI -----------------------------------------------------------
+function DietMealCard({ meal, isDark }: { meal: TemplateMeal; isDark: boolean }) {
+  return (
+    <View style={[
+      dmStyles.card,
+      { backgroundColor: isDark ? '#252536' : '#ffffff' },
+    ]}>
+      <View style={{ width: 180, height: 110, backgroundColor: isDark ? '#2D2D3D' : '#F0EBF8' }}>
+        <Image
+          source={meal.meal_image ? { uri: meal.meal_image } : require('@/assets/images/generic-meal-image.jpg')}
+          style={dmStyles.image}
+          contentFit="cover"
+          transition={200}
+        />
+      </View>
+      <View style={dmStyles.content}>
+        <Text style={[dmStyles.mealName, { color: isDark ? '#f2f2f2' : '#111' }]} numberOfLines={1}>
+          {meal.name}
+        </Text>
+        <View style={dmStyles.macrosRow}>
+          <Text style={[dmStyles.macroText, { color: '#f97316' }]}>{meal.totalCalories} kcal</Text>
+          <Text style={[dmStyles.macroText, { color: '#34d399' }]}>P:{meal.totalProtein}g</Text>
+          <Text style={[dmStyles.macroText, { color: '#a78bfa' }]}>C:{meal.totalCarbs}g</Text>
+          <Text style={[dmStyles.macroText, { color: '#60a5fa' }]}>F:{meal.totalFat}g</Text>
+        </View>
+        {meal.rating != null && (
+          <Text style={dmStyles.rating}>
+            {'★'.repeat(Math.floor(meal.rating))}{'☆'.repeat(5 - Math.floor(meal.rating))}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function DietMealSection({
+  label, icon, meals, isDark,
+}: {
+  label: string; icon: string; meals: TemplateMeal[]; isDark: boolean;
+}) {
+  return (
+    <View style={[dmStyles.sectionCard, { backgroundColor: isDark ? '#0D0D1A' : '#F0EBF8' }]}>
+      <View style={dmStyles.sectionHeader}>
+        <Ionicons name={icon as any} size={18} color="#8B5CF6" />
+        <Text style={[dmStyles.sectionLabel, { color: isDark ? '#f2f2f2' : '#111' }]}>{label}</Text>
+        {meals.length > 0 && (
+          <Text style={dmStyles.calTotal}>
+            {meals.reduce((s, m) => s + m.totalCalories, 0)} kcal
+          </Text>
+        )}
+      </View>
+      {meals.length === 0 ? (
+        <View style={[dmStyles.emptySlot, { borderColor: isDark ? '#2D2D3D' : '#E0E0E0' }]}>
+          <Text style={{ color: isDark ? '#555' : '#BBB', fontSize: 13 }}>No meal planned</Text>
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 12 }}
+          style={{ minHeight: 180 }}
+        >
+          {meals.map((meal) => (
+            <DietMealCard key={meal.id} meal={meal} isDark={isDark} />
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const { activeDiet } = useUserDiet();
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [metrics, setMetrics] = useState<Metric[]>([])
   const [loading, setLoading] = useState(true)
@@ -195,6 +247,54 @@ export default function Dashboard() {
   const [showAddMeal, setShowAddMeal] = useState(false)
   const [userId, setUserId] = useState<string | null>(null);
   const [meals, setMeals] = useState<any[]>([]);
+
+  // Colors
+  const colorScheme = useColorScheme();
+  const dark = colorScheme !== 'light';
+
+  const C = {
+    bg: dark ? '#0D0D1A' : '#F5F5FA',
+    surface: dark ? '#1A1A2E' : '#FFFFFF',
+    surfaceHi: dark ? '#252536' : '#F0EBF8',
+    border: dark ? '#2D2D3D' : '#EBEBEB',
+    borderHi: dark ? '#3D3D4D' : '#D0D0D0',
+    textPrime: dark ? '#FFFFFF' : '#111111',
+    textSub: dark ? '#6B6B8A' : '#888888',
+    textMid: dark ? '#9999BB' : '#666666',
+    orange: '#f97316',
+    blue: '#60a5fa',
+    green: '#34d399',
+    purple: '#8B5CF6',   // ← journal accent
+    rose: '#fb7185',
+    amber: '#fbbf24',
+  };
+
+  // Diets update
+  const mealSections = React.useMemo(() => {
+    if (!activeDiet?.diet_meals) return [];
+    const byType: Record<string, TemplateMeal[]> = {};
+    activeDiet.diet_meals.forEach((row) => {
+      const m = row.user_meals;
+      if (!m) return;
+      const meal: TemplateMeal = {
+        id: row.id,
+        meal_id: m.meal_id,
+        name: m.meal_name || m.meal_type,
+        meal_image: m.meal_image ?? null,
+        ingredients: [],
+        totalCalories: m.total_calories ?? 0,
+        totalProtein: m.total_protein ?? 0,
+        totalCarbs: m.total_carbs ?? 0,
+        totalFat: m.total_fat ?? 0,
+        rating: m.meal_rating ?? null,
+      };
+      if (!byType[row.meal_type]) byType[row.meal_type] = [];
+      byType[row.meal_type].push(meal);
+    });
+    return AVAILABLE_MEAL_TYPES
+      .filter((mt) => activeDiet.meal_structure.includes(mt.key))
+      .map((mt) => ({ ...mt, meals: byType[mt.key] || [] }));
+  }, [activeDiet]);
 
   useEffect(() => {
     const getUser = async () => {
@@ -206,6 +306,18 @@ export default function Dashboard() {
 
     getUser();
   }, []);
+
+  // ─── Chart config ─────────────────────────────────────────────────────────────
+
+  const baseChartConfig = {
+    backgroundGradientFrom: C.surfaceHi,
+    backgroundGradientTo: C.surfaceHi,
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(242, 242, 242, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(90, 90, 90, ${opacity})`,
+    propsForBackgroundLines: { stroke: '#1f1f1f' },
+    propsForDots: { r: '3', strokeWidth: '0' },
+  }
 
   const refreshMeals = async () => {
     if (!userId) return;
@@ -366,6 +478,57 @@ export default function Dashboard() {
           </Text>
         </View>
 
+        {/* ── Active Diet Panel ──────────────────────────────────────────── */}
+        <View style={styles.panel}>
+          <View style={{ gap: 4 }}>
+            <Text style={{ fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: 1 }}>
+              Active Diet
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={{ fontSize: 22, fontWeight: '800', color: C.textPrime }}>
+                {activeDiet?.diet_name ?? 'No diet selected'}
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push('/(protected)/(pages)/journal/diets')}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 5,
+                  backgroundColor: C.surfaceHi, borderRadius: 10,
+                  paddingHorizontal: 10, paddingVertical: 6,
+                  borderWidth: 1, borderColor: C.borderHi,
+                }}
+              >
+                <Ionicons name="swap-horizontal" size={14} color={C.orange} />
+                <Text style={{ fontSize: 11, color: C.orange, fontWeight: '600' }}>Switch</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {!activeDiet ? (
+            <TouchableOpacity
+              onPress={() => router.push('/(protected)/(pages)/journal/diets')}
+              style={{
+                paddingVertical: 20, alignItems: 'center', gap: 6,
+                borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, borderRadius: 12,
+              }}
+            >
+              <Text style={{ fontSize: 13, color: C.textSub }}>Tap to select or create a diet plan</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ gap: 20 }}>
+              <View style={[styles.panelDivider]} />
+              {mealSections.map((section) => (
+                <DietMealSection
+                  key={section.key}
+                  label={section.label}
+                  icon={section.icon}
+                  meals={section.meals}
+                  isDark={dark}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+
         {/* ── Stat Cards ─────────────────────────────────────────────────── */}
         <ScrollView
           horizontal
@@ -502,7 +665,7 @@ export default function Dashboard() {
           ) : (
             <View style={styles.mealList}>
               {recentMeals.map(meal => (
-                <MealRow key={meal.meal_id} meal={meal} />
+                <MealRow key={meal.meal_id} meal={meal} dark={dark} />
               ))}
             </View>
           )}
@@ -526,20 +689,17 @@ export default function Dashboard() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-
   loadingContainer: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: '#0D0D1A',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 14,
   },
   loadingText: {
-    color: C.textSub,
+    color: '#6B6B8A',
     fontSize: 14,
   },
-
-  // Nav
   nav: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -547,9 +707,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 56 : 36,
     paddingBottom: 14,
-    backgroundColor: C.bg,
+    backgroundColor: '#0D0D1A',
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: '#2D2D3D',
   },
   navLogoWrap: {
     flexDirection: 'row',
@@ -561,23 +721,23 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: C.orange,
+    backgroundColor: '#f97316',
   },
   navLogo: {
     fontSize: 18,
     fontWeight: '700',
-    color: C.textPrime,
+    color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: C.orange,
+    backgroundColor: '#f97316',
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 9,
-    shadowColor: C.orange,
+    shadowColor: '#f97316',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
@@ -607,63 +767,57 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: C.surfaceHi,
+    backgroundColor: '#252536',
     borderWidth: 1,
-    borderColor: C.borderHi,
+    borderColor: '#3D3D4D',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 13,
     fontWeight: '700',
-    color: C.textMid,
+    color: '#9999BB',
   },
   signOutBtn: {
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: '#2D2D3D',
     borderRadius: 9,
     paddingHorizontal: 11,
     paddingVertical: 6,
   },
   signOutText: {
-    color: C.textSub,
+    color: '#6B6B8A',
     fontSize: 12,
     fontWeight: '500',
   },
-
-  // Scroll
   scroll: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: '#0D0D1A',
   },
   scrollContent: {
     padding: 20,
     paddingBottom: 60,
     gap: 24,
   },
-
-  // Greeting
   greetingBlock: {
     gap: 4,
     paddingTop: 8,
   },
   greetingSub: {
     fontSize: 12,
-    color: C.textSub,
+    color: '#6B6B8A',
     textTransform: 'uppercase',
     letterSpacing: 1.2,
   },
   greetingTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: C.textPrime,
+    color: '#FFFFFF',
     lineHeight: 34,
   },
   greetingName: {
-    color: C.orange,
+    color: '#f97316',
   },
-
-  // Stat cards
   statsScroll: {
     marginHorizontal: -20,
   },
@@ -672,9 +826,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statCard: {
-    backgroundColor: C.surface,
+    backgroundColor: '#1A1A2E',
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: '#2D2D3D',
     borderTopWidth: 2,
     borderRadius: 18,
     padding: 18,
@@ -691,7 +845,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 10,
-    color: C.textSub,
+    color: '#6B6B8A',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     flex: 1,
@@ -708,26 +862,22 @@ const styles = StyleSheet.create({
   },
   statUnit: {
     fontSize: 12,
-    color: C.textSub,
+    color: '#6B6B8A',
     marginBottom: 3,
   },
-
-  // Panel
   panel: {
-    backgroundColor: C.surface,
+    backgroundColor: '#1A1A2E',
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: '#2D2D3D',
     borderRadius: 22,
     padding: 18,
     gap: 14,
   },
   panelDivider: {
     height: 1,
-    backgroundColor: C.border,
+    backgroundColor: '#2D2D3D',
     marginHorizontal: -18,
   },
-
-  // Section header
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -736,14 +886,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: C.textPrime,
+    color: '#FFFFFF',
   },
   sectionSubtitle: {
     fontSize: 12,
-    color: C.textSub,
+    color: '#6B6B8A',
   },
-
-  // Tabs
   tabRow: {
     gap: 8,
   },
@@ -751,28 +899,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: C.surfaceHi,
+    backgroundColor: '#252536',
     borderWidth: 1,
     borderColor: 'transparent',
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: C.textSub,
+    color: '#6B6B8A',
   },
-
-  // Chart
   chartSubtitle: {
     fontSize: 12,
-    color: C.textSub,
+    color: '#6B6B8A',
     marginBottom: 4,
   },
   chart: {
     borderRadius: 12,
     marginLeft: -10,
   },
-
-  // Macros legend
   legendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -790,10 +934,8 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: C.textMid,
+    color: '#9999BB',
   },
-
-  // Meals list
   mealList: {
     gap: 8,
   },
@@ -801,11 +943,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: C.surfaceHi,
+    backgroundColor: '#252536',
     borderRadius: 14,
     padding: 13,
     borderWidth: 1,
-    borderColor: C.borderHi,
+    borderColor: '#3D3D4D',
   },
   mealDot: {
     width: 8,
@@ -820,12 +962,12 @@ const styles = StyleSheet.create({
   mealType: {
     fontSize: 14,
     fontWeight: '600',
-    color: C.textPrime,
+    color: '#FFFFFF',
     textTransform: 'capitalize',
   },
   mealDate: {
     fontSize: 11,
-    color: C.textSub,
+    color: '#6B6B8A',
   },
   mealRight: {
     flexDirection: 'row',
@@ -834,7 +976,7 @@ const styles = StyleSheet.create({
   },
   mealRating: {
     fontSize: 11,
-    color: C.amber,
+    color: '#fbbf24',
   },
   calorieBadge: {
     borderWidth: 1,
@@ -846,8 +988,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-
-  // Empty state
   emptyState: {
     alignItems: 'center',
     paddingVertical: 28,
@@ -859,10 +999,45 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 15,
     fontWeight: '600',
-    color: C.textMid,
+    color: '#9999BB',
   },
   emptyStateHint: {
     fontSize: 13,
-    color: C.textSub,
+    color: '#6B6B8A',
   },
-})
+});
+
+// Diet UI Styling
+const dmStyles = StyleSheet.create({
+  sectionCard: {
+    borderRadius: 16,
+    padding: 14,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+  },
+  section: { gap: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionLabel: { fontSize: 15, fontWeight: '600', flex: 1 },
+  calTotal: { fontSize: 12, color: '#f97316', fontWeight: '500' },
+  emptySlot: {
+    height: 60, borderWidth: 1, borderStyle: 'dashed',
+    borderRadius: 12, justifyContent: 'center', alignItems: 'center',
+  },
+  card: {
+    width: 180,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  image: { width: '100%', height: 110 },
+  content: { padding: 10, gap: 4 },
+  mealName: { fontSize: 13, fontWeight: '600' },
+  macrosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  macroText: { fontSize: 10, fontWeight: '500' },
+  rating: { fontSize: 11, color: '#fbbf24', marginTop: 2 },
+});

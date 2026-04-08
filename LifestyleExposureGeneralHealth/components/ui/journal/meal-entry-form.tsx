@@ -1,5 +1,4 @@
 // components/ui/journal/meal-entry-form.tsx
-
 import React, { useState } from 'react';
 import {
   View,
@@ -13,7 +12,7 @@ import {
   useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { MealType, MoodRating, PhysicalFeeling, EmotionalFeeling, MealEntry } from '@/types/journal';
+import { MealType, MoodRating, PhysicalFeeling, EmotionalFeeling, MealEntry, TemplateMeal } from '@/types/diets-meals';
 import { MealTypeSelector } from '@/components/ui/journal/meal-selector';
 import {
   MoodRatingSelector,
@@ -27,7 +26,8 @@ interface MealEntryFormProps {
   onSubmit: (entry: Omit<MealEntry, 'id' | 'createdAt'>) => Promise<void>;
   onCancel: () => void;
   initialEntry?: MealEntry;
-  lockedMealType?: string;  // ← add this
+  lockedMealType?: string;
+  prefillMeal?: TemplateMeal; // ← add this
 }
 
 export const MealEntryForm: React.FC<MealEntryFormProps> = ({
@@ -35,16 +35,31 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
   onCancel,
   initialEntry,
   lockedMealType,
+  prefillMeal, // ← add this
 }) => {
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
+  // Build prefilled food description from template meal
+  const getPrefillDescription = (): string => {
+    if (initialEntry?.foodDescription) return initialEntry.foodDescription;
+    if (prefillMeal) {
+      // If the template meal has ingredients, list them
+      if (prefillMeal.ingredients && prefillMeal.ingredients.length > 0) {
+        return prefillMeal.ingredients
+          .map((ing) => `${ing.qty}x ${ing.ingredient_name}`)
+          .join('\n');
+      }
+      // Otherwise just use the meal name
+      return prefillMeal.name;
+    }
+    return '';
+  };
+
   const [mealType, setMealType] = useState<MealType | null>(
-    (lockedMealType as MealType) ?? initialEntry?.mealType ?? null  // ← prefer locked
+    (lockedMealType as MealType) ?? initialEntry?.mealType ?? null
   );
-  const [foodDescription, setFoodDescription] = useState(
-    initialEntry?.foodDescription || ''
-  );
+  const [foodDescription, setFoodDescription] = useState(getPrefillDescription());
   const [physicalFeelings, setPhysicalFeelings] = useState<PhysicalFeeling[]>(
     initialEntry?.physicalFeelings || []
   );
@@ -95,7 +110,6 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-
     setIsSubmitting(true);
     try {
       await onSubmit({
@@ -133,7 +147,7 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
           <Ionicons name="close" size={28} color={isDark ? '#fff' : '#333'} />
         </TouchableOpacity>
         <ThemedText type="subtitle" style={styles.headerTitle}>
-          {initialEntry ? 'Edit Entry' : 'New Entry'}
+          {initialEntry ? 'Edit Entry' : prefillMeal ? 'Log Planned Meal' : 'New Entry'}
         </ThemedText>
         <TouchableOpacity
           onPress={handleSubmit}
@@ -152,6 +166,16 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Prefill info banner */}
+        {prefillMeal && (
+          <View style={[styles.prefillBanner, { backgroundColor: isDark ? '#2D2D3D' : '#F0EBF8' }]}>
+            <Ionicons name="restaurant-outline" size={16} color="#8B5CF6" />
+            <ThemedText style={styles.prefillBannerText}>
+              Logging: {prefillMeal.name} ({prefillMeal.totalCalories} kcal)
+            </ThemedText>
+          </View>
+        )}
+
         {/* Only show selector if meal type isn't locked by the sheet */}
         {!lockedMealType && (
           <MealTypeSelector selected={mealType} onSelect={setMealType} />
@@ -248,6 +272,20 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
+  },
+  prefillBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  prefillBannerText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#8B5CF6',
+    flex: 1,
   },
   inputContainer: {
     marginBottom: 24,
