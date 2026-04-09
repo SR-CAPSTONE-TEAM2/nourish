@@ -1,4 +1,4 @@
-# LifestyleExposureGeneralHealthApp
+# Nourish App
 
 General purpose health and wellness application for exercise, food, macronutrients, micronutrients, and miscellaneous health indicators.
 Expand to more niche health indicators people have begun taking more seriously
