@@ -5,7 +5,6 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
 import { MoodRating, PhysicalFeeling, EmotionalFeeling } from '@/types/diets-meals';
 import {
@@ -14,6 +13,7 @@ import {
   EMOTIONAL_FEELINGS,
 } from '@/constants/journal';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/context/theme-context';
 
 interface MoodRatingSelectorProps {
   selected: MoodRating;
@@ -24,8 +24,7 @@ export const MoodRatingSelector: React.FC<MoodRatingSelectorProps> = ({
   selected,
   onSelect,
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
 
   return (
     <View style={styles.container}>
@@ -43,9 +42,7 @@ export const MoodRatingSelector: React.FC<MoodRatingSelectorProps> = ({
                 {
                   backgroundColor: isSelected
                     ? 'rgba(139, 92, 246, 0.2)'
-                    : isDark
-                      ? '#1C1C2E'
-                      : '#F5F5F7',
+                    : colors.card,
                   borderColor: isSelected ? '#8B5CF6' : 'transparent',
                 },
               ]}
@@ -82,8 +79,7 @@ export function FeelingsSelector<T extends string>({
   selected,
   onToggle,
 }: FeelingsSelectorProps<T>) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
 
   return (
     <View style={styles.container}>
@@ -101,14 +97,10 @@ export function FeelingsSelector<T extends string>({
                 {
                   backgroundColor: isSelected
                     ? 'rgba(139, 92, 246, 0.2)'
-                    : isDark
-                      ? '#1C1C2E'
-                      : '#F5F5F7',
+                    : colors.card,
                   borderColor: isSelected
                     ? '#8B5CF6'
-                    : isDark
-                      ? '#2D2D3A'
-                      : '#E5E5E7',
+                    : colors.border,
                 },
               ]}
               onPress={() => onToggle(option.value)}

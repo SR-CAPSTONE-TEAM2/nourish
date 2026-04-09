@@ -7,6 +7,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { supabase } from '@/lib/supabase';
 import AddMealModal, { AddMealSuccessPayload } from '../../(modals)/addmealmodal';
+import { useTheme } from '@/context/theme-context';
 
 import { FoodItem, MealType, Vitamins, Minerals } from '@/types/types';
 import { RECOMMENDED, RECOMMENDED_VITAMINS, RECOMMENDED_MINERALS } from '@/constants/recommended';
@@ -138,6 +139,7 @@ function appendSavedItems(
 }
 
 export default function HomeScreen() {
+  const { isDark, colors } = useTheme();
   const [items, setItems] = useState<FoodItem[]>([]);
   const [expandedMeals, setExpandedMeals] = useState<Set<MealType>>(new Set());
   const [expandedReportSections, setExpandedReportSections] = useState<Set<string>>(new Set());
@@ -493,19 +495,19 @@ export default function HomeScreen() {
 
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}
+      headerBackgroundColor={{ light: '#F5F5F5', dark: '#1C1C2E' }}
       headerImage={
         <View style={styles.headerContent}>
           <View style={styles.headerGlow} />
           <View style={styles.headerGlow2} />
-          <ThemedText style={styles.headerDate}>{dateLabel}</ThemedText>
-          <ThemedText style={styles.headerTitle}>Daily Nutrition</ThemedText>
+          <ThemedText style={[styles.headerDate, { color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)' }]}>{dateLabel}</ThemedText>
+          <ThemedText style={[styles.headerTitle, { color: colors.text }]}>Daily Nutrition</ThemedText>
         </View>
       }
     >
       {/* Title and Add Button */}
       <View style={styles.titleContainer}>
-        <ThemedText type="title" style={{ color: '#ffffff' }}>Today's Stats</ThemedText>
+        <ThemedText type="title">Today's Stats</ThemedText>
         <TouchableOpacity
           onPress={() => setShowAddMeal(true)}
           activeOpacity={0.8}
@@ -520,7 +522,7 @@ export default function HomeScreen() {
 
       {/* Meals label */}
       <View style={styles.sectionHeaderRow}>
-        <ThemedText style={styles.sectionLabel}>TODAY'S MEALS</ThemedText>
+        <ThemedText style={[styles.sectionLabel, { color: colors.textMuted }]}>TODAY'S MEALS</ThemedText>
       </View>
 
       {/* Meal Sections */}
@@ -543,7 +545,7 @@ export default function HomeScreen() {
 
       {/* Nutrient Report label */}
       <View style={styles.sectionHeaderRow}>
-        <ThemedText style={styles.sectionLabel}>NUTRIENT BREAKDOWN</ThemedText>
+        <ThemedText style={[styles.sectionLabel, { color: colors.textMuted }]}>NUTRIENT BREAKDOWN</ThemedText>
       </View>
 
       {/* Nutrient Report */}
@@ -558,26 +560,26 @@ export default function HomeScreen() {
 
       {/* AI Q&A Section */}
       <View style={styles.sectionHeaderRow}>
-        <ThemedText style={styles.sectionLabel}>ASK AI ABOUT YOUR NUTRITION</ThemedText>
+        <ThemedText style={[styles.sectionLabel, { color: colors.textMuted }]}>ASK AI ABOUT YOUR NUTRITION</ThemedText>
       </View>
 
-      <ThemedView style={styles.qaContainer}>
+      <ThemedView style={[styles.qaContainer, { backgroundColor: colors.card }]}>
         {thought ? (
           <View style={styles.thoughtContainer}>
             <ThemedText style={styles.thoughtLabel}>AI THOUGHT PROCESS</ThemedText>
-            <ThemedText style={styles.thoughtText}>{thought}</ThemedText>
+            <ThemedText style={[styles.thoughtText, { color: colors.textSecondary }]}>{thought}</ThemedText>
           </View>
         ) : null}
 
         {answer ? (
           <View style={styles.answerContainer}>
-            <ThemedText style={styles.answerText}>{answer}</ThemedText>
+            <ThemedText style={[styles.answerText, { color: colors.text }]}>{answer}</ThemedText>
           </View>
         ) : null}
 
         <View style={styles.inputRow}>
           <TextInput
-            style={styles.textInput}
+            style={[styles.textInput, { backgroundColor: colors.inputBackground, color: colors.text }]}
             placeholder="What should I eat to hit my goals?"
             placeholderTextColor="#6B6B8A"
             value={question}
@@ -640,7 +642,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(99,102,241,0.1)',
   },
   headerDate: {
-    color: 'rgba(255,255,255,0.45)',
     fontSize: 12,
     fontFamily: 'Ubuntu_400Regular',
     letterSpacing: 1.2,
@@ -648,7 +649,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   headerTitle: {
-    color: 'white',
     fontSize: 30,
     fontFamily: 'Ubuntu_700Bold',
     fontWeight: 'bold',
@@ -667,7 +667,6 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 11,
     letterSpacing: 1.5,
-    color: '#6B6B8A',
     fontFamily: 'Ubuntu_400Regular',
   },
   addButton: {
@@ -685,7 +684,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   qaContainer: {
-    backgroundColor: '#27273C',
     borderRadius: 16,
     padding: 16,
     marginTop: 8,
@@ -698,8 +696,6 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#1C1C2E',
-    color: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -732,7 +728,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(139,92,246,0.2)',
   },
   answerText: {
-    color: '#E2E8F0',
     fontFamily: 'Ubuntu_400Regular',
     fontSize: 14,
     lineHeight: 22,
@@ -753,7 +748,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   thoughtText: {
-    color: '#94A3B8',
     fontFamily: 'Ubuntu_400Regular',
     fontSize: 12,
     lineHeight: 18,

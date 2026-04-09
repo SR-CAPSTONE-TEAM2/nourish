@@ -5,6 +5,7 @@ import { ThemedView } from '@/components/themed-view';
 import { ProgressBar } from '@/components/ui/progress-bars/progress-bar-default';
 import { RECOMMENDED_VITAMINS, RECOMMENDED_MINERALS } from '@/constants/recommended';
 import { Vitamins, Minerals } from '@/types/types';
+import { useTheme } from '@/context/theme-context';
 
 interface NutrientReportProps {
   totalVitamins: Vitamins;
@@ -37,12 +38,14 @@ export const NutrientReport = ({
   expandedReportSections,
   onToggleSection,
 }: NutrientReportProps) => {
+  const { isDark, colors } = useTheme();
+
   return (
     <ThemedView style={styles.reportSection}>
-      <ThemedText type="title" style={[styles.reportTitle, { color: '#ffffff' }]}>Nutrient Report</ThemedText>
+      <ThemedText type="title" style={[styles.reportTitle, { color: colors.text }]}>Nutrient Report</ThemedText>
 
       {/* Vitamins Subsection */}
-      <ThemedView style={styles.reportSubsection}>
+      <View style={[styles.reportSubsection, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => onToggleSection('vitamins')}
           style={styles.reportHeader}
@@ -50,127 +53,127 @@ export const NutrientReport = ({
         >
           <View style={styles.reportHeaderLeft}>
             <View style={[styles.sectionAccent, { backgroundColor: '#8B5CF6' }]} />
-            <ThemedText type="subtitle" style={styles.whiteText}>Vitamins</ThemedText>
+            <ThemedText type="subtitle" style={{ color: colors.text }}>Vitamins</ThemedText>
           </View>
-          <ThemedText type="defaultSemiBold" style={styles.chevron}>
+          <ThemedText type="defaultSemiBold" style={[styles.chevron, { color: colors.textMuted }]}>
             {expandedReportSections.has('vitamins') ? '▼' : '▶'}
           </ThemedText>
         </TouchableOpacity>
         {expandedReportSections.has('vitamins') && (
           <View style={styles.vitaminsList}>
             {/* Vitamin A */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin A</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminA.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminA} mcg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Vitamin A</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminA.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminA} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminA} />
-            </ThemedView>
+            </View>
 
             {/* B1 */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>B1 (Thiamine)</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB1.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB1} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>B1 (Thiamine)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminB1.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB1} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB1} />
-            </ThemedView>
+            </View>
 
             {/* B2 */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>B2 (Riboflavin)</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB2.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB2} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>B2 (Riboflavin)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminB2.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB2} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB2} />
-            </ThemedView>
+            </View>
 
             {/* B3 */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>B3 (Niacin)</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB3.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB3} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>B3 (Niacin)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminB3.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB3} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB3} />
-            </ThemedView>
+            </View>
 
             {/* B5 */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>B5 (Pantothenic acid)</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB5.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB5} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>B5 (Pantothenic acid)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminB5.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB5} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB5} />
-            </ThemedView>
+            </View>
 
             {/* B6 */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>B6 (Pyridoxine)</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB6.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB6} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>B6 (Pyridoxine)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminB6.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB6} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB6} />
-            </ThemedView>
+            </View>
 
             {/* B12 */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>B12 (Cobalamin)</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminB12.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB12} mcg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>B12 (Cobalamin)</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminB12.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminB12} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminB12} />
-            </ThemedView>
+            </View>
 
             {/* Folate */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Folate</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.folate.toFixed(1)} / {RECOMMENDED_VITAMINS.folate} mcg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Folate</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.folate.toFixed(1)} / {RECOMMENDED_VITAMINS.folate} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.folate} />
-            </ThemedView>
+            </View>
 
             {/* Vitamin C */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin C</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminC.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminC} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Vitamin C</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminC.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminC} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminC} />
-            </ThemedView>
+            </View>
 
             {/* Vitamin D */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin D</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminD.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminD} mcg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Vitamin D</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminD.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminD} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminD} />
-            </ThemedView>
+            </View>
 
             {/* Vitamin E */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin E</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminE.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminE} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Vitamin E</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminE.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminE} mg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminE} />
-            </ThemedView>
+            </View>
 
             {/* Vitamin K */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Vitamin K</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalVitamins.vitaminK.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminK} mcg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Vitamin K</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalVitamins.vitaminK.toFixed(1)} / {RECOMMENDED_VITAMINS.vitaminK} mcg</ThemedText>
               </View>
               <ProgressBar percent={vitaminPercents.vitaminK} />
-            </ThemedView>
+            </View>
           </View>
         )}
-      </ThemedView>
+      </View>
 
       {/* Minerals Subsection */}
-      <ThemedView style={styles.reportSubsection}>
+      <View style={[styles.reportSubsection, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <TouchableOpacity
           onPress={() => onToggleSection('minerals')}
           style={styles.reportHeader}
@@ -178,97 +181,97 @@ export const NutrientReport = ({
         >
           <View style={styles.reportHeaderLeft}>
             <View style={[styles.sectionAccent, { backgroundColor: '#F59E0B' }]} />
-            <ThemedText type="subtitle" style={styles.whiteText}>Minerals</ThemedText>
+            <ThemedText type="subtitle" style={{ color: colors.text }}>Minerals</ThemedText>
           </View>
-          <ThemedText type="defaultSemiBold" style={styles.chevron}>
+          <ThemedText type="defaultSemiBold" style={[styles.chevron, { color: colors.textMuted }]}>
             {expandedReportSections.has('minerals') ? '▼' : '▶'}
           </ThemedText>
         </TouchableOpacity>
         {expandedReportSections.has('minerals') && (
           <View style={styles.vitaminsList}>
             {/* Calcium */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Calcium</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.calcium.toFixed(1)} / {RECOMMENDED_MINERALS.calcium} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Calcium</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.calcium.toFixed(1)} / {RECOMMENDED_MINERALS.calcium} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.calcium} />
-            </ThemedView>
+            </View>
 
             {/* Copper */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Copper</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.copper.toFixed(1)} / {RECOMMENDED_MINERALS.copper} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Copper</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.copper.toFixed(1)} / {RECOMMENDED_MINERALS.copper} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.copper} />
-            </ThemedView>
+            </View>
 
             {/* Iron */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Iron</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.iron.toFixed(1)} / {RECOMMENDED_MINERALS.iron} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Iron</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.iron.toFixed(1)} / {RECOMMENDED_MINERALS.iron} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.iron} />
-            </ThemedView>
+            </View>
 
             {/* Magnesium */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Magnesium</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.magnesium.toFixed(1)} / {RECOMMENDED_MINERALS.magnesium} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Magnesium</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.magnesium.toFixed(1)} / {RECOMMENDED_MINERALS.magnesium} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.magnesium} />
-            </ThemedView>
+            </View>
 
             {/* Manganese */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Manganese</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.manganese.toFixed(1)} / {RECOMMENDED_MINERALS.manganese} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Manganese</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.manganese.toFixed(1)} / {RECOMMENDED_MINERALS.manganese} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.manganese} />
-            </ThemedView>
+            </View>
 
             {/* Phosphorus */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Phosphorus</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.phosphorus.toFixed(1)} / {RECOMMENDED_MINERALS.phosphorus} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Phosphorus</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.phosphorus.toFixed(1)} / {RECOMMENDED_MINERALS.phosphorus} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.phosphorus} />
-            </ThemedView>
+            </View>
 
             {/* Selenium */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Selenium</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.selenium.toFixed(1)} / {RECOMMENDED_MINERALS.selenium} mcg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Selenium</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.selenium.toFixed(1)} / {RECOMMENDED_MINERALS.selenium} mcg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.selenium} />
-            </ThemedView>
+            </View>
 
             {/* Sodium */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Sodium</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.sodium.toFixed(1)} / {RECOMMENDED_MINERALS.sodium} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Sodium</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.sodium.toFixed(1)} / {RECOMMENDED_MINERALS.sodium} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.sodium} />
-            </ThemedView>
+            </View>
 
             {/* Zinc */}
-            <ThemedView style={styles.vitaminNutrientRow}>
+            <View style={[styles.vitaminNutrientRow, { backgroundColor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }]}>
               <View style={styles.vitaminLabel}>
-                <ThemedText type="subtitle" style={styles.whiteText}>Zinc</ThemedText>
-                <ThemedText type="defaultSemiBold" style={styles.whiteText}>{totalMinerals.zinc.toFixed(1)} / {RECOMMENDED_MINERALS.zinc} mg</ThemedText>
+                <ThemedText type="subtitle" style={{ color: colors.text }}>Zinc</ThemedText>
+                <ThemedText type="defaultSemiBold" style={{ color: colors.text }}>{totalMinerals.zinc.toFixed(1)} / {RECOMMENDED_MINERALS.zinc} mg</ThemedText>
               </View>
               <ProgressBar percent={mineralPercents.zinc} />
-            </ThemedView>
+            </View>
           </View>
         )}
-      </ThemedView>
+      </View>
     </ThemedView>
   );
 };
@@ -277,7 +280,6 @@ export const NutrientReport = ({
 const styles = StyleSheet.create({
   chevron: {
     fontSize: 11,
-    color: '#6B6B8A',
   },
   reportSection: {
     marginVertical: 4,
@@ -290,9 +292,7 @@ const styles = StyleSheet.create({
   },
   reportSubsection: {
     borderRadius: 14,
-    backgroundColor: '#1C1C2E',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
     overflow: 'hidden',
   },
   reportHeader: {
@@ -322,10 +322,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  whiteText: {
-    color: '#ffffff',
   },
   vitaminLabel: {
     flexDirection: 'row',

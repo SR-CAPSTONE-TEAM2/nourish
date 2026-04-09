@@ -3,6 +3,7 @@ import { useState } from 'react';
 import AppleHealthKit from 'react-native-health';
 import { Platform } from 'react-native';
 import { LinkedAppItem } from '@/components/ui/containers/linked-app-item';
+import { useTheme } from '@/context/theme-context';
 
 const SUPPORTED_LINKED_APPS = [
   {
@@ -41,6 +42,7 @@ const SUPPORTED_LINKED_APPS = [
 ];
 
 export default function LinkedAppsScreen() {
+  const { isDark, colors } = useTheme();
   const [linkedAccounts, setLinkedAccounts] = useState<Record<string, string>>({
     garmin: 'account@gmail.com',
   });
@@ -76,7 +78,7 @@ export default function LinkedAppsScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* App list */}
       <FlatList
         data={SUPPORTED_LINKED_APPS}
@@ -100,7 +102,6 @@ export default function LinkedAppsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0A0A12',
     paddingHorizontal: 24,
     paddingTop: 32,
   },
@@ -128,19 +129,16 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#1C1C2E',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 32,
     gap: 16,
   },
   modalTitle: {
-    color: 'white',
     fontSize: 20,
     fontWeight: '700',
   },
   modalBody: {
-    color: '#6B6B8A',
     fontSize: 15,
   },
   modalClose: {

@@ -34,24 +34,24 @@ export default function FoodModal() {
           style={styles.modalClose}
           onPress={() => router.back()}
         >
-        <ThemedText type="title" style={{ color: '#ffffff' }}>×</ThemedText>
+        <ThemedText type="title">×</ThemedText>
         </TouchableOpacity>
-        <ThemedText type="title" style={[styles.modalTitle, { color: '#ffffff' }]}>{display.name}</ThemedText>
+        <ThemedText type="title" style={styles.modalTitle}>{display.name}</ThemedText>
         <View style={styles.modalNutrientRow}>
-          <ThemedText type="subtitle" style={{ color: '#ffffff' }}>Calories</ThemedText>
-          <ThemedText type="defaultSemiBold" style={{ color: '#ffffff' }}>{display.calories} kcal</ThemedText>
+          <ThemedText type="subtitle">Calories</ThemedText>
+          <ThemedText type="defaultSemiBold">{display.calories} kcal</ThemedText>
         </View>
         <View style={styles.modalNutrientRow}>
-          <ThemedText type="subtitle" style={{ color: '#ffffff' }}>Protein</ThemedText>
-          <ThemedText type="defaultSemiBold" style={{ color: '#ffffff' }}>{display.protein}g</ThemedText>
+          <ThemedText type="subtitle">Protein</ThemedText>
+          <ThemedText type="defaultSemiBold">{display.protein}g</ThemedText>
         </View>
         <View style={styles.modalNutrientRow}>
-          <ThemedText type="subtitle" style={{ color: '#ffffff' }}>Carbs</ThemedText>
-          <ThemedText type="defaultSemiBold" style={{ color: '#ffffff' }}>{display.carbs}g</ThemedText>
+          <ThemedText type="subtitle">Carbs</ThemedText>
+          <ThemedText type="defaultSemiBold">{display.carbs}g</ThemedText>
         </View>
         <View style={styles.modalNutrientRow}>
-          <ThemedText type="subtitle" style={{ color: '#ffffff' }}>Fat</ThemedText>
-          <ThemedText type="defaultSemiBold" style={{ color: '#ffffff' }}>{display.fat}g</ThemedText>
+          <ThemedText type="subtitle">Fat</ThemedText>
+          <ThemedText type="defaultSemiBold">{display.fat}g</ThemedText>
         </View>
       </ThemedView>
     </View>

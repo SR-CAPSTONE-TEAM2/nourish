@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native'
 import { supabase } from '@/lib/supabase'
+import { useTheme } from '@/context/theme-context'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -157,6 +158,7 @@ async function searchFoods(
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
+  const { isDark, colors } = useTheme()
   const [step, setStep] = useState<'type' | 'ingredients'>('type')
   const [mealType, setMealType] = useState<MealType | null>(null)
   const [query, setQuery] = useState('')
@@ -236,7 +238,6 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
   // ── Ingredient management
   function addIngredient(item: FoodResult) {
-    console.log('[AddMeal] fdc_id:', item.fdc_id, '|', item.ingredient_name, '| cal/100g:', item.calories, '| amount:', item.amount, '| unit:', item.unit, '| modifier:', item.modifier)
     setSelected(prev => {
       const exists = prev.find(s => s.fdc_id === item.fdc_id)
       if (exists) return prev.map(s => s.fdc_id === item.fdc_id ? { ...s, qty: s.qty + 1 } : s)
@@ -338,7 +339,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       {/* Dim overlay */}
       <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} />
+        <Animated.View style={[styles.overlay, { opacity: overlayAnim, backgroundColor: colors.overlay }]} />
       </TouchableWithoutFeedback>
 
       <KeyboardAvoidingView
@@ -346,20 +347,20 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
         style={styles.kvWrapper}
         pointerEvents="box-none"
       >
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+        <Animated.View style={[styles.sheet, { transform: [{ translateY: slideAnim }], backgroundColor: isDark ? '#181818' : '#FFFFFF', borderTopColor: colors.border }]}>
 
           {/* Handle bar */}
-          <View style={styles.handle} />
+          <View style={[styles.handle, { backgroundColor: isDark ? '#303030' : '#D0D0D0' }]} />
 
           {/* Header */}
           <View style={styles.header}>
             {step === 'ingredients' && (
-              <TouchableOpacity onPress={() => setStep('type')} style={styles.iconBtn}>
-                <Text style={styles.iconBtnText}>←</Text>
+              <TouchableOpacity onPress={() => setStep('type')} style={[styles.iconBtn, { backgroundColor: colors.inputBackground }]}>
+                <Text style={[styles.iconBtnText, { color: colors.textMuted }]}>←</Text>
               </TouchableOpacity>
             )}
             <View style={styles.headerCenter}>
-              <Text style={styles.headerTitle}>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
                 {step === 'type' ? 'Log a meal' : mealType!}
               </Text>
               {step === 'ingredients' && mealType && (
@@ -368,8 +369,8 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                 </View>
               )}
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
-              <Text style={styles.iconBtnText}>✕</Text>
+            <TouchableOpacity onPress={onClose} style={[styles.iconBtn, { backgroundColor: colors.inputBackground }]}>
+              <Text style={[styles.iconBtnText, { color: colors.textMuted }]}>✕</Text>
             </TouchableOpacity>
           </View>
 
@@ -382,6 +383,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                     key={type}
                     style={[
                       styles.typeCard,
+                      { backgroundColor: colors.inputBackground, borderColor: colors.border },
                       mealType === type && {
                         borderColor: MEAL_COLORS[type],
                         backgroundColor: MEAL_COLORS[type] + '18',
@@ -393,7 +395,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                     <Text style={styles.typeEmoji}>
                       {type === 'Breakfast' ? '🌅' : type === 'Lunch' ? '☀️' : type === 'Dinner' ? '🌙' : '🍎'}
                     </Text>
-                    <Text style={[styles.typeLabel, mealType === type && { color: MEAL_COLORS[type] }]}>
+                    <Text style={[styles.typeLabel, { color: colors.textSecondary }, mealType === type && { color: MEAL_COLORS[type] }]}>
                       {type}
                     </Text>
                   </TouchableOpacity>
@@ -403,12 +405,12 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
               <TouchableOpacity
                 style={[
                   styles.primaryBtn,
-                  !mealType ? styles.primaryBtnDisabled : { backgroundColor: accentColor },
+                  !mealType ? [styles.primaryBtnDisabled, { backgroundColor: colors.inputBackground }] : { backgroundColor: accentColor },
                 ]}
                 onPress={() => mealType && setStep('ingredients')}
                 disabled={!mealType}
               >
-                <Text style={[styles.primaryBtnText, !mealType && styles.primaryBtnTextDisabled]}>
+                <Text style={[styles.primaryBtnText, !mealType && [styles.primaryBtnTextDisabled, { color: colors.textMuted }]]}>
                   Continue →
                 </Text>
               </TouchableOpacity>
@@ -420,12 +422,12 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
             <View style={styles.ingredientsWrap}>
 
               {/* Search box */}
-              <View style={[styles.searchBox, { borderColor: query ? accentColor + '99' : '#2e2e2e' }]}>
+              <View style={[styles.searchBox, { backgroundColor: colors.inputBackground, borderColor: query ? accentColor + '99' : colors.border }]}>
                 <Text style={styles.searchIcon}>🔍</Text>
                 <TextInput
-                  style={styles.searchInput}
+                  style={[styles.searchInput, { color: colors.text }]}
                   placeholder="Search ingredients…"
-                  placeholderTextColor="#444"
+                  placeholderTextColor={colors.textMuted}
                   value={query}
                   onChangeText={setQuery}
                   autoCorrect={false}
@@ -435,7 +437,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                   ? <ActivityIndicator size="small" color="#555" />
                   : query.length > 0 && (
                     <TouchableOpacity onPress={() => { setQuery(''); setResults([]) }}>
-                      <Text style={styles.clearBtn}>✕</Text>
+                      <Text style={[styles.clearBtn, { color: colors.textMuted }]}>✕</Text>
                     </TouchableOpacity>
                   )
                 }
@@ -443,7 +445,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
               {/* Search results dropdown */}
               {results.length > 0 && (
-                <View style={styles.dropdown}>
+                <View style={[styles.dropdown, { backgroundColor: isDark ? '#1e1e1e' : '#FFFFFF', borderColor: colors.border }]}>
                   <FlatList
                     data={results}
                     keyExtractor={item => String(item.fdc_id)}
@@ -463,14 +465,14 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                           onPress={() => addIngredient(item)}
                         >
                           <View style={styles.dropdownMain}>
-                            <Text style={styles.dropdownName} numberOfLines={2}>
+                            <Text style={[styles.dropdownName, { color: colors.text }]} numberOfLines={2}>
                               {item.ingredient_name}
                             </Text>
-                            <Text style={styles.dropdownDetail}>
+                            <Text style={[styles.dropdownDetail, { color: colors.textMuted }]}>
                               {portionLabel}
                               {isPer100g ? '' : ` · ${item.amount}g`}
                             </Text>
-                            <Text style={styles.dropdownMacros}>
+                            <Text style={[styles.dropdownMacros, { color: colors.textSecondary }]}>
                               P {portionP}g · C {portionC}g · F {portionF}g
                             </Text>
                           </View>
@@ -478,7 +480,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                             <View style={styles.dropdownCalContainer}>
                               <Text style={styles.dropdownCal}>{portionCal}</Text>
                               <Text style={styles.dropdownCalUnit}>kcal</Text>
-                              <Text style={styles.dropdownServingLabel}>
+                              <Text style={[styles.dropdownServingLabel, { color: colors.textMuted }]}>
                                 {isPer100g ? 'per 100g' : 'per serving'}
                               </Text>
                             </View>
@@ -486,21 +488,21 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                         </TouchableOpacity>
                       )
                     }}
-                    ItemSeparatorComponent={() => <View style={styles.sep} />}
+                    ItemSeparatorComponent={() => <View style={[styles.sep, { backgroundColor: colors.border }]} />}
                     ListFooterComponent={
                       hasMore ? (
                         <TouchableOpacity
-                          style={styles.loadMoreBtn}
+                          style={[styles.loadMoreBtn, { borderTopColor: colors.border }]}
                           onPress={loadMore}
                           disabled={loadingMore}
                         >
                           {loadingMore
                             ? <ActivityIndicator size="small" color="#555" />
-                            : <Text style={styles.loadMoreText}>Load more results…</Text>
+                            : <Text style={[styles.loadMoreText, { color: colors.textMuted }]}>Load more results…</Text>
                           }
                         </TouchableOpacity>
                       ) : results.length >= PAGE_SIZE ? (
-                        <Text style={styles.endText}>Showing all results</Text>
+                        <Text style={[styles.endText, { color: colors.textMuted }]}>Showing all results</Text>
                       ) : null
                     }
                   />
@@ -509,7 +511,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
               {/* No results hint */}
               {!searching && query.length > 0 && results.length === 0 && (
-                <Text style={styles.noResults}>No results for "{query}". Try a different term.</Text>
+                <Text style={[styles.noResults, { color: colors.textMuted }]}>No results for "{query}". Try a different term.</Text>
               )}
 
               {/* Selected ingredients */}
@@ -519,15 +521,15 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                 showsVerticalScrollIndicator={false}
               >
                 {selected.length === 0 ? (
-                  <Text style={styles.emptyHint}>Search above to add ingredients to your meal.</Text>
+                  <Text style={[styles.emptyHint, { color: colors.textMuted }]}>Search above to add ingredients to your meal.</Text>
                 ) : (
                   selected.map(item => (
-                    <View key={item.fdc_id} style={styles.selectedRow}>
+                    <View key={item.fdc_id} style={[styles.selectedRow, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                       <View style={styles.selectedInfo}>
-                        <Text style={styles.selectedName} numberOfLines={2}>
+                        <Text style={[styles.selectedName, { color: colors.text }]} numberOfLines={2}>
                           {item.ingredient_name}
                         </Text>
-                        <Text style={styles.selectedDetail}>
+                        <Text style={[styles.selectedDetail, { color: colors.textMuted }]}>
                           {formatPortion(item)}
                           {'  ·  '}
                           <Text style={{ color: '#f97316' }}>
@@ -536,12 +538,12 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                         </Text>
                       </View>
                       <View style={styles.qtyRow}>
-                        <TouchableOpacity style={styles.qtyBtn} onPress={() => changeQty(item.fdc_id, -1)}>
-                          <Text style={styles.qtyBtnText}>−</Text>
+                        <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: isDark ? '#2a2a2a' : '#E5E5E7' }]} onPress={() => changeQty(item.fdc_id, -1)}>
+                          <Text style={[styles.qtyBtnText, { color: colors.textSecondary }]}>−</Text>
                         </TouchableOpacity>
-                        <Text style={styles.qtyNum}>{item.qty}</Text>
-                        <TouchableOpacity style={styles.qtyBtn} onPress={() => changeQty(item.fdc_id, 1)}>
-                          <Text style={styles.qtyBtnText}>+</Text>
+                        <Text style={[styles.qtyNum, { color: colors.text }]}>{item.qty}</Text>
+                        <TouchableOpacity style={[styles.qtyBtn, { backgroundColor: isDark ? '#2a2a2a' : '#E5E5E7' }]} onPress={() => changeQty(item.fdc_id, 1)}>
+                          <Text style={[styles.qtyBtnText, { color: colors.textSecondary }]}>+</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.removeBtn} onPress={() => removeIngredient(item.fdc_id)}>
                           <Text style={styles.removeBtnText}>✕</Text>
@@ -554,24 +556,24 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
               {/* Macro summary + submit */}
               {selected.length > 0 && (
-                <View style={styles.footer}>
+                <View style={[styles.footer, { borderTopColor: colors.border }]}>
                   {/* Macro pills */}
                   <View style={styles.macroRow}>
-                    <View style={styles.macroPill}>
+                    <View style={[styles.macroPill, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                       <Text style={[styles.macroVal, { color: '#f97316' }]}>{totalCalories}</Text>
-                      <Text style={styles.macroLabel}>kcal</Text>
+                      <Text style={[styles.macroLabel, { color: colors.textMuted }]}>kcal</Text>
                     </View>
-                    <View style={styles.macroPill}>
+                    <View style={[styles.macroPill, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                       <Text style={[styles.macroVal, { color: '#34d399' }]}>{totalProtein}g</Text>
-                      <Text style={styles.macroLabel}>protein</Text>
+                      <Text style={[styles.macroLabel, { color: colors.textMuted }]}>protein</Text>
                     </View>
-                    <View style={styles.macroPill}>
+                    <View style={[styles.macroPill, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                       <Text style={[styles.macroVal, { color: '#a78bfa' }]}>{totalCarbs}g</Text>
-                      <Text style={styles.macroLabel}>carbs</Text>
+                      <Text style={[styles.macroLabel, { color: colors.textMuted }]}>carbs</Text>
                     </View>
-                    <View style={styles.macroPill}>
+                    <View style={[styles.macroPill, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                       <Text style={[styles.macroVal, { color: '#60a5fa' }]}>{totalFat}g</Text>
-                      <Text style={styles.macroLabel}>fat</Text>
+                      <Text style={[styles.macroLabel, { color: colors.textMuted }]}>fat</Text>
                     </View>
                   </View>
 
@@ -609,14 +611,12 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.74)',
   },
   kvWrapper: {
     flex: 1,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#181818',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingHorizontal: 22,
@@ -624,7 +624,6 @@ const styles = StyleSheet.create({
     maxHeight: '92%',
     minHeight: '50%',
     borderTopWidth: 1,
-    borderTopColor: '#252525',
   },
 
   // Handle
@@ -632,7 +631,6 @@ const styles = StyleSheet.create({
     width: 38,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#303030',
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 6,
@@ -654,18 +652,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '700',
-    color: '#f0f0f0',
   },
   iconBtn: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#242424',
     alignItems: 'center',
     justifyContent: 'center',
   },
   iconBtnText: {
-    color: '#888',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -690,9 +685,7 @@ const styles = StyleSheet.create({
   },
   typeCard: {
     width: '47%',
-    backgroundColor: '#212121',
     borderWidth: 1.5,
-    borderColor: '#2e2e2e',
     borderRadius: 18,
     padding: 20,
     alignItems: 'center',
@@ -702,7 +695,6 @@ const styles = StyleSheet.create({
   typeLabel: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#bbb',
   },
 
   // Primary action button
@@ -713,13 +705,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minHeight: 50,
   },
-  primaryBtnDisabled: { backgroundColor: '#242424' },
+  primaryBtnDisabled: {},
   primaryBtnText: {
     fontSize: 15,
     fontWeight: '700',
     color: '#141414',
   },
-  primaryBtnTextDisabled: { color: '#444' },
+  primaryBtnTextDisabled: {},
 
   // Ingredients step wrapper
   ingredientsWrap: {
@@ -731,7 +723,6 @@ const styles = StyleSheet.create({
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#212121',
     borderWidth: 1.5,
     borderRadius: 14,
     paddingHorizontal: 14,
@@ -742,11 +733,9 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: '#e8e8e8',
     padding: 0,
   },
   clearBtn: {
-    color: '#555',
     fontSize: 13,
     fontWeight: '600',
     paddingLeft: 4,
@@ -754,9 +743,7 @@ const styles = StyleSheet.create({
 
   // Dropdown
   dropdown: {
-    backgroundColor: '#1e1e1e',
     borderWidth: 1,
-    borderColor: '#2a2a2a',
     borderRadius: 14,
     overflow: 'hidden',
     maxHeight: 300,
@@ -773,15 +760,12 @@ const styles = StyleSheet.create({
   dropdownName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#e0e0e0',
   },
   dropdownDetail: {
     fontSize: 11,
-    color: '#555',
   },
   dropdownMacros: {
     fontSize: 11,
-    color: '#777',
     marginTop: 1,
   },
   dropdownCalContainer: {
@@ -800,34 +784,28 @@ const styles = StyleSheet.create({
   },
   dropdownServingLabel: {
     fontSize: 9,
-    color: '#888',
     marginTop: 1,
   },
   sep: {
     height: 1,
-    backgroundColor: '#252525',
     marginHorizontal: 12,
   },
   loadMoreBtn: {
     paddingVertical: 12,
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#252525',
   },
   loadMoreText: {
     fontSize: 13,
-    color: '#555',
     fontWeight: '500',
   },
   endText: {
     fontSize: 12,
-    color: '#333',
     textAlign: 'center',
     paddingVertical: 10,
   },
   noResults: {
     fontSize: 13,
-    color: '#444',
     textAlign: 'center',
     paddingVertical: 8,
   },
@@ -835,7 +813,6 @@ const styles = StyleSheet.create({
   // Selected list
   selectedScroll: { maxHeight: 230 },
   emptyHint: {
-    color: '#333',
     fontSize: 14,
     textAlign: 'center',
     paddingVertical: 20,
@@ -843,24 +820,20 @@ const styles = StyleSheet.create({
   selectedRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#212121',
     borderRadius: 13,
     paddingHorizontal: 13,
     paddingVertical: 11,
     marginBottom: 7,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
   },
   selectedInfo: { flex: 1, gap: 3 },
   selectedName: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#e0e0e0',
   },
   selectedDetail: {
     fontSize: 12,
-    color: '#555',
   },
   qtyRow: {
     flexDirection: 'row',
@@ -871,12 +844,10 @@ const styles = StyleSheet.create({
     width: 27,
     height: 27,
     borderRadius: 8,
-    backgroundColor: '#2a2a2a',
     alignItems: 'center',
     justifyContent: 'center',
   },
   qtyBtnText: {
-    color: '#ccc',
     fontSize: 16,
     fontWeight: '600',
     lineHeight: 20,
@@ -884,7 +855,6 @@ const styles = StyleSheet.create({
   qtyNum: {
     width: 20,
     textAlign: 'center',
-    color: '#e0e0e0',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -908,7 +878,6 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#232323',
   },
   macroRow: {
     flexDirection: 'row',
@@ -917,12 +886,10 @@ const styles = StyleSheet.create({
   macroPill: {
     flex: 1,
     alignItems: 'center',
-    backgroundColor: '#212121',
     borderRadius: 10,
     paddingVertical: 8,
     marginHorizontal: 3,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
   },
   macroVal: {
     fontSize: 15,
@@ -930,7 +897,6 @@ const styles = StyleSheet.create({
   },
   macroLabel: {
     fontSize: 10,
-    color: '#555',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginTop: 1,

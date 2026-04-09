@@ -20,7 +20,7 @@ import { AVAILABLE_MEAL_TYPES, TemplateMeal } from '@/types/diets-meals';
 import { Image } from 'expo-image';
 import { useUser } from '@/context/user-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme } from 'react-native';
+import { useTheme } from '@/context/theme-context';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const CHART_WIDTH = SCREEN_WIDTH - 80
@@ -74,19 +74,20 @@ function getTotalCaloriesToday(meals: Meal[]): number {
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({
-  label, value, unit, color, icon,
+  label, value, unit, color, icon, C,
 }: {
-  label: string; value: string; unit?: string; color: string; icon: string
+  label: string; value: string; unit?: string; color: string; icon: string;
+  C: Record<string, string>;
 }) {
   return (
-    <View style={[styles.statCard, { borderTopColor: color }]}>
+    <View style={[styles.statCard, { borderTopColor: color, backgroundColor: C.surface, borderColor: C.border }]}>
       <View style={styles.statCardTop}>
         <Text style={styles.statIcon}>{icon}</Text>
-        <Text style={styles.statLabel}>{label}</Text>
+        <Text style={[styles.statLabel, { color: C.textSub }]}>{label}</Text>
       </View>
       <View style={styles.statValueRow}>
         <Text style={[styles.statValue, { color }]}>{value}</Text>
-        {unit && <Text style={styles.statUnit}>{unit}</Text>}
+        {unit && <Text style={[styles.statUnit, { color: C.textSub }]}>{unit}</Text>}
       </View>
     </View>
   )
@@ -94,11 +95,11 @@ function StatCard({
 
 // ─── Section Header ───────────────────────────────────────────────────────────
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function SectionHeader({ title, subtitle, C }: { title: string; subtitle?: string; C: Record<string, string> }) {
   return (
     <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {subtitle && <Text style={styles.sectionSubtitle}>{subtitle}</Text>}
+      <Text style={[styles.sectionTitle, { color: C.textPrime }]}>{title}</Text>
+      {subtitle && <Text style={[styles.sectionSubtitle, { color: C.textSub }]}>{subtitle}</Text>}
     </View>
   )
 }
@@ -112,18 +113,18 @@ const MEAL_COLORS: Record<string, string> = {
   snack: '#f97316',  // orange}
 };
 
-function MealRow({ meal, dark }: { meal: Meal, dark: boolean }) {
+function MealRow({ meal, C }: { meal: Meal, C: Record<string, string> }) {
   const type = (meal.meal_type ?? 'meal').toLowerCase()
   const accent = MEAL_COLORS[type] ?? '#888888';
   return (
     <View style={[
       styles.mealRow,
-      { backgroundColor: dark ? '#252536' : '#F8F8FA', borderColor: dark ? '#3D3D4D' : '#EBEBEB' },
+      { backgroundColor: C.surfaceHi, borderColor: C.borderHi },
     ]}>
       <View style={[styles.mealDot, { backgroundColor: accent }]} />
       <View style={styles.mealInfo}>
-        <Text style={styles.mealType}>{meal.meal_type ?? 'Meal'}</Text>
-        <Text style={styles.mealDate}>
+        <Text style={[styles.mealType, { color: C.textPrime }]}>{meal.meal_type ?? 'Meal'}</Text>
+        <Text style={[styles.mealDate, { color: C.textSub }]}>
           {new Date(meal.meal_date).toLocaleDateString('en-US', {
             month: 'short', day: 'numeric', year: 'numeric',
           })}
@@ -148,17 +149,18 @@ function MealRow({ meal, dark }: { meal: Meal, dark: boolean }) {
 // ─── Tab Button ───────────────────────────────────────────────────────────────
 
 function TabButton({
-  label, active, color, onPress,
+  label, active, color, onPress, C,
 }: {
-  label: string; active: boolean; color: string; onPress: () => void
+  label: string; active: boolean; color: string; onPress: () => void;
+  C: Record<string, string>;
 }) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={[styles.tab, active && { backgroundColor: color + '18', borderColor: color + '55' }]}
+      style={[styles.tab, { backgroundColor: C.surfaceHi }, active && { backgroundColor: color + '18', borderColor: color + '55' }]}
       activeOpacity={0.7}
     >
-      <Text style={[styles.tabText, active && { color }]}>{label}</Text>
+      <Text style={[styles.tabText, { color: C.textSub }, active && { color }]}>{label}</Text>
     </TouchableOpacity>
   )
 }
@@ -199,15 +201,16 @@ function DietMealCard({ meal, isDark }: { meal: TemplateMeal; isDark: boolean })
 }
 
 function DietMealSection({
-  label, icon, meals, isDark,
+  label, icon, meals, isDark, C,
 }: {
   label: string; icon: string; meals: TemplateMeal[]; isDark: boolean;
+  C: Record<string, string>;
 }) {
   return (
-    <View style={[dmStyles.sectionCard, { backgroundColor: isDark ? '#0D0D1A' : '#F0EBF8' }]}>
+    <View style={[dmStyles.sectionCard, { backgroundColor: isDark ? '#0D0D1A' : '#F0EBF8', borderColor: C.border }]}>
       <View style={dmStyles.sectionHeader}>
         <Ionicons name={icon as any} size={18} color="#8B5CF6" />
-        <Text style={[dmStyles.sectionLabel, { color: isDark ? '#f2f2f2' : '#111' }]}>{label}</Text>
+        <Text style={[dmStyles.sectionLabel, { color: C.textPrime }]}>{label}</Text>
         {meals.length > 0 && (
           <Text style={dmStyles.calTotal}>
             {meals.reduce((s, m) => s + m.totalCalories, 0)} kcal
@@ -215,8 +218,8 @@ function DietMealSection({
         )}
       </View>
       {meals.length === 0 ? (
-        <View style={[dmStyles.emptySlot, { borderColor: isDark ? '#2D2D3D' : '#E0E0E0' }]}>
-          <Text style={{ color: isDark ? '#555' : '#BBB', fontSize: 13 }}>No meal planned</Text>
+        <View style={[dmStyles.emptySlot, { borderColor: C.border }]}>
+          <Text style={{ color: C.textSub, fontSize: 13 }}>No meal planned</Text>
         </View>
       ) : (
         <ScrollView
@@ -249,18 +252,18 @@ export default function Dashboard() {
   const [meals, setMeals] = useState<any[]>([]);
 
   // Colors
-  const colorScheme = useColorScheme();
-  const dark = colorScheme !== 'light';
+  const { isDark, colors, setThemeMode } = useTheme();
+  const dark = isDark;
 
   const C = {
-    bg: dark ? '#0D0D1A' : '#F5F5FA',
-    surface: dark ? '#1A1A2E' : '#FFFFFF',
-    surfaceHi: dark ? '#252536' : '#F0EBF8',
-    border: dark ? '#2D2D3D' : '#EBEBEB',
-    borderHi: dark ? '#3D3D4D' : '#D0D0D0',
-    textPrime: dark ? '#FFFFFF' : '#111111',
-    textSub: dark ? '#6B6B8A' : '#888888',
-    textMid: dark ? '#9999BB' : '#666666',
+    bg: colors.background,
+    surface: colors.card,
+    surfaceHi: colors.surfaceHighlight,
+    border: colors.border,
+    borderHi: colors.borderHighlight,
+    textPrime: colors.text,
+    textSub: colors.textMuted,
+    textMid: colors.textSecondary,
     orange: '#f97316',
     blue: '#60a5fa',
     green: '#34d399',
@@ -313,9 +316,13 @@ export default function Dashboard() {
     backgroundGradientFrom: C.surfaceHi,
     backgroundGradientTo: C.surfaceHi,
     decimalPlaces: 0,
-    color: (opacity = 1) => `rgba(242, 242, 242, ${opacity})`,
-    labelColor: (opacity = 1) => `rgba(90, 90, 90, ${opacity})`,
-    propsForBackgroundLines: { stroke: '#1f1f1f' },
+    color: (opacity = 1) => isDark
+      ? `rgba(242, 242, 242, ${opacity})`
+      : `rgba(30, 30, 30, ${opacity})`,
+    labelColor: (opacity = 1) => isDark
+      ? `rgba(90, 90, 90, ${opacity})`
+      : `rgba(100, 100, 100, ${opacity})`,
+    propsForBackgroundLines: { stroke: isDark ? '#1f1f1f' : '#E5E5E7' },
     propsForDots: { r: '3', strokeWidth: '0' },
   }
 
@@ -359,9 +366,9 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={[styles.loadingContainer, { backgroundColor: C.bg }]}>
         <ActivityIndicator size="large" color={C.orange} />
-        <Text style={styles.loadingText}>Loading your dashboard…</Text>
+        <Text style={[styles.loadingText, { color: C.textSub }]}>Loading your dashboard…</Text>
       </View>
     )
   }
@@ -432,10 +439,10 @@ export default function Dashboard() {
     <View style={{ paddingTop: insets.top, flex: 1, backgroundColor: C.bg, }}>
 
       {/* ── Nav Bar ─────────────────────────────────────────────────────── */}
-      <View style={styles.nav}>
+      <View style={[styles.nav, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
         <View style={styles.navLogoWrap}>
           <View style={styles.navLogoDot} />
-          <Text style={styles.navLogo}>nourish</Text>
+          <Text style={[styles.navLogo, { color: C.textPrime }]}>nourish</Text>
         </View>
 
         <TouchableOpacity
@@ -448,28 +455,41 @@ export default function Dashboard() {
         </TouchableOpacity>
 
         <View style={styles.navRight}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{profile?.first_name?.[0] ?? '?'}</Text>
+          {/* Theme toggle */}
+          <TouchableOpacity
+            onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
+            style={[styles.themeToggle, { backgroundColor: C.surfaceHi, borderColor: C.borderHi }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isDark ? 'sunny-outline' : 'moon-outline'}
+              size={18}
+              color={isDark ? '#fbbf24' : '#6B6B8A'}
+            />
+          </TouchableOpacity>
+
+          <View style={[styles.avatar, { backgroundColor: C.surfaceHi, borderColor: C.borderHi }]}>
+            <Text style={[styles.avatarText, { color: C.textMid }]}>{profile?.first_name?.[0] ?? '?'}</Text>
           </View>
-          <TouchableOpacity onPress={signOut} style={styles.signOutBtn}>
-            <Text style={styles.signOutText}>Out</Text>
+          <TouchableOpacity onPress={signOut} style={[styles.signOutBtn, { borderColor: C.border }]}>
+            <Text style={[styles.signOutText, { color: C.textSub }]}>Out</Text>
           </TouchableOpacity>
         </View>
       </View>
 
       {/* ── Scrollable content ──────────────────────────────────────────── */}
       <ScrollView
-        style={styles.scroll}
+        style={[styles.scroll, { backgroundColor: C.bg }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
 
         {/* Greeting */}
         <View style={styles.greetingBlock}>
-          <Text style={styles.greetingSub}>
+          <Text style={[styles.greetingSub, { color: C.textSub }]}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </Text>
-          <Text style={styles.greetingTitle}>
+          <Text style={[styles.greetingTitle, { color: C.textPrime }]}>
             {greeting},{' '}
             <Text style={styles.greetingName}>
               {profile?.first_name ?? profile?.username ?? 'there'}
@@ -479,7 +499,7 @@ export default function Dashboard() {
         </View>
 
         {/* ── Active Diet Panel ──────────────────────────────────────────── */}
-        <View style={styles.panel}>
+        <View style={[styles.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
           <View style={{ gap: 4 }}>
             <Text style={{ fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: 1 }}>
               Active Diet
@@ -515,7 +535,7 @@ export default function Dashboard() {
             </TouchableOpacity>
           ) : (
             <View style={{ gap: 20 }}>
-              <View style={[styles.panelDivider]} />
+              <View style={[styles.panelDivider, { backgroundColor: C.border }]} />
               {mealSections.map((section) => (
                 <DietMealSection
                   key={section.key}
@@ -523,6 +543,7 @@ export default function Dashboard() {
                   icon={section.icon}
                   meals={section.meals}
                   isDark={dark}
+                  C={C}
                 />
               ))}
             </View>
@@ -536,15 +557,15 @@ export default function Dashboard() {
           style={styles.statsScroll}
           contentContainerStyle={styles.statsScrollContent}
         >
-          <StatCard label="Today's Calories" value={String(getTotalCaloriesToday(meals))} unit="kcal" color={C.orange} icon="🔥" />
-          <StatCard label="Current Weight" value={getLatestMetric(metrics, 'weight')} unit="lbs" color={C.blue} icon="⚖️" />
-          <StatCard label="Latest Protein" value={getLatestMetric(metrics, 'protein')} unit="g" color={C.green} icon="💪" />
-          <StatCard label="Latest Carbs" value={getLatestMetric(metrics, 'carbs')} unit="g" color={C.purple} icon="🌾" />
-          <StatCard label="Total Meals" value={String(meals.length)} color={C.rose} icon="🍽️" />
+          <StatCard label="Today's Calories" value={String(getTotalCaloriesToday(meals))} unit="kcal" color={C.orange} icon="🔥" C={C} />
+          <StatCard label="Current Weight" value={getLatestMetric(metrics, 'weight')} unit="lbs" color={C.blue} icon="⚖️" C={C} />
+          <StatCard label="Latest Protein" value={getLatestMetric(metrics, 'protein')} unit="g" color={C.green} icon="💪" C={C} />
+          <StatCard label="Latest Carbs" value={getLatestMetric(metrics, 'carbs')} unit="g" color={C.purple} icon="🌾" C={C} />
+          <StatCard label="Total Meals" value={String(meals.length)} color={C.rose} icon="🍽️" C={C} />
         </ScrollView>
 
         {/* ── Chart Panel ────────────────────────────────────────────────── */}
-        <View style={styles.panel}>
+        <View style={[styles.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
 
           <ScrollView
             horizontal
@@ -558,13 +579,14 @@ export default function Dashboard() {
                 active={activeTab === t.key}
                 color={t.color}
                 onPress={() => setActiveTab(t.key)}
+                C={C}
               />
             ))}
           </ScrollView>
 
-          <View style={styles.panelDivider} />
+          <View style={[styles.panelDivider, { backgroundColor: C.border }]} />
 
-          <Text style={styles.chartSubtitle}>
+          <Text style={[styles.chartSubtitle, { color: C.textSub }]}>
             {activeTab === 'calories' && 'Total calories from meals — monthly overview'}
             {activeTab === 'weight' && 'Average body weight per month'}
             {activeTab === 'protein' && 'Average daily protein intake per month'}
@@ -641,7 +663,7 @@ export default function Dashboard() {
                 ] as [string, string][]).map(([color, label]) => (
                   <View key={label} style={styles.legendItem}>
                     <View style={[styles.legendDot, { backgroundColor: color }]} />
-                    <Text style={styles.legendText}>{label}</Text>
+                    <Text style={[styles.legendText, { color: C.textMid }]}>{label}</Text>
                   </View>
                 ))}
               </View>
@@ -650,22 +672,23 @@ export default function Dashboard() {
         </View>
 
         {/* ── Recent Meals ───────────────────────────────────────────────── */}
-        <View style={styles.panel}>
+        <View style={[styles.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
           <SectionHeader
             title="Recent Meals"
             subtitle={`${recentMeals.length} of ${meals.length} logged`}
+            C={C}
           />
-          <View style={styles.panelDivider} />
+          <View style={[styles.panelDivider, { backgroundColor: C.border }]} />
           {recentMeals.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateIcon}>🍽️</Text>
-              <Text style={styles.emptyStateText}>No meals logged yet.</Text>
-              <Text style={styles.emptyStateHint}>Tap + Log Meal to get started.</Text>
+              <Text style={[styles.emptyStateText, { color: C.textMid }]}>No meals logged yet.</Text>
+              <Text style={[styles.emptyStateHint, { color: C.textSub }]}>Tap + Log Meal to get started.</Text>
             </View>
           ) : (
             <View style={styles.mealList}>
               {recentMeals.map(meal => (
-                <MealRow key={meal.meal_id} meal={meal} dark={dark} />
+                <MealRow key={meal.meal_id} meal={meal} C={C} />
               ))}
             </View>
           )}
@@ -691,13 +714,11 @@ export default function Dashboard() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0D0D1A',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 14,
   },
   loadingText: {
-    color: '#6B6B8A',
     fontSize: 14,
   },
   nav: {
@@ -707,9 +728,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 56 : 36,
     paddingBottom: 14,
-    backgroundColor: '#0D0D1A',
     borderBottomWidth: 1,
-    borderBottomColor: '#2D2D3D',
   },
   navLogoWrap: {
     flexDirection: 'row',
@@ -726,7 +745,6 @@ const styles = StyleSheet.create({
   navLogo: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
     letterSpacing: -0.5,
   },
   addBtn: {
@@ -763,36 +781,38 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 10,
   },
+  themeToggle: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   avatar: {
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#252536',
     borderWidth: 1,
-    borderColor: '#3D3D4D',
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#9999BB',
   },
   signOutBtn: {
     borderWidth: 1,
-    borderColor: '#2D2D3D',
     borderRadius: 9,
     paddingHorizontal: 11,
     paddingVertical: 6,
   },
   signOutText: {
-    color: '#6B6B8A',
     fontSize: 12,
     fontWeight: '500',
   },
   scroll: {
     flex: 1,
-    backgroundColor: '#0D0D1A',
   },
   scrollContent: {
     padding: 20,
@@ -805,14 +825,12 @@ const styles = StyleSheet.create({
   },
   greetingSub: {
     fontSize: 12,
-    color: '#6B6B8A',
     textTransform: 'uppercase',
     letterSpacing: 1.2,
   },
   greetingTitle: {
     fontSize: 26,
     fontWeight: '700',
-    color: '#FFFFFF',
     lineHeight: 34,
   },
   greetingName: {
@@ -826,9 +844,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statCard: {
-    backgroundColor: '#1A1A2E',
     borderWidth: 1,
-    borderColor: '#2D2D3D',
     borderTopWidth: 2,
     borderRadius: 18,
     padding: 18,
@@ -845,7 +861,6 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 10,
-    color: '#6B6B8A',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     flex: 1,
@@ -862,20 +877,16 @@ const styles = StyleSheet.create({
   },
   statUnit: {
     fontSize: 12,
-    color: '#6B6B8A',
     marginBottom: 3,
   },
   panel: {
-    backgroundColor: '#1A1A2E',
     borderWidth: 1,
-    borderColor: '#2D2D3D',
     borderRadius: 22,
     padding: 18,
     gap: 14,
   },
   panelDivider: {
     height: 1,
-    backgroundColor: '#2D2D3D',
     marginHorizontal: -18,
   },
   sectionHeader: {
@@ -886,11 +897,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
   },
   sectionSubtitle: {
     fontSize: 12,
-    color: '#6B6B8A',
   },
   tabRow: {
     gap: 8,
@@ -899,18 +908,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: '#252536',
     borderWidth: 1,
     borderColor: 'transparent',
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B6B8A',
   },
   chartSubtitle: {
     fontSize: 12,
-    color: '#6B6B8A',
     marginBottom: 4,
   },
   chart: {
@@ -934,7 +940,6 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#9999BB',
   },
   mealList: {
     gap: 8,
@@ -943,11 +948,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#252536',
     borderRadius: 14,
     padding: 13,
     borderWidth: 1,
-    borderColor: '#3D3D4D',
   },
   mealDot: {
     width: 8,
@@ -962,12 +965,10 @@ const styles = StyleSheet.create({
   mealType: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
     textTransform: 'capitalize',
   },
   mealDate: {
     fontSize: 11,
-    color: '#6B6B8A',
   },
   mealRight: {
     flexDirection: 'row',
@@ -999,11 +1000,9 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#9999BB',
   },
   emptyStateHint: {
     fontSize: 13,
-    color: '#6B6B8A',
   },
 });
 
@@ -1014,7 +1013,6 @@ const dmStyles = StyleSheet.create({
     padding: 14,
     gap: 12,
     borderWidth: 1,
-    borderColor: '#2a2a2a',
   },
   section: { gap: 10 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },

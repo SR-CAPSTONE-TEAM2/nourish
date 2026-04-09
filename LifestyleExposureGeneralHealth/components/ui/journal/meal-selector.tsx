@@ -3,11 +3,11 @@ import {
   View,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
 } from 'react-native';
 import { MealType } from '@/types/diets-meals';
 import { MEAL_TYPES } from '@/constants/journal';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/context/theme-context';
 
 interface MealTypeSelectorProps {
   selected: MealType | null;
@@ -18,8 +18,7 @@ export const MealTypeSelector: React.FC<MealTypeSelectorProps> = ({
   selected,
   onSelect,
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
 
   return (
     <View style={styles.container}>
@@ -37,9 +36,7 @@ export const MealTypeSelector: React.FC<MealTypeSelectorProps> = ({
                 {
                   backgroundColor: isSelected
                     ? 'rgba(139, 92, 246, 0.2)'
-                    : isDark
-                      ? '#1C1C2E'
-                      : '#F5F5F7',
+                    : colors.card,
                   borderColor: isSelected ? '#8B5CF6' : 'transparent',
                 },
               ]}

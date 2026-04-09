@@ -1,6 +1,7 @@
 import { Modal, View, Text, TouchableOpacity, FlatList, StyleSheet, ViewStyle, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import { useTheme } from '@/context/theme-context';
 
 // Individual row variants
 type BaseRowProps = { label: string };
@@ -49,33 +50,34 @@ function SelectPicker({ value, options, onSelect }: {
   onSelect: (v: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const { isDark, colors } = useTheme();
 
   return (
     <>
       <TouchableOpacity
-        style={styles.selectButton}
+        style={[styles.selectButton, { backgroundColor: colors.background }]}
         onPress={() => setOpen(true)}
       >
-        <Text style={styles.selectButtonText}>{value}</Text>
-        <Ionicons name="chevron-down" size={14} color="white" />
+        <Text style={[styles.selectButtonText, { color: colors.text }]}>{value}</Text>
+        <Ionicons name="chevron-down" size={14} color={colors.text} />
       </TouchableOpacity>
 
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity
-          style={styles.modalOverlay}
+          style={[styles.modalOverlay, { backgroundColor: colors.overlay }]}
           onPress={() => setOpen(false)}
           activeOpacity={1}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <FlatList
               data={options}
               keyExtractor={(item) => item}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={[styles.option, item === value && styles.optionSelected]}
+                  style={[styles.option, item === value && { backgroundColor: colors.background }]}
                   onPress={() => { onSelect(item); setOpen(false); }}
                 >
-                  <Text style={[styles.optionText, item === value && styles.optionTextSelected]}>
+                  <Text style={[styles.optionText, { color: colors.textMuted }, item === value && { color: colors.text, fontWeight: '600' }]}>
                     {item}
                   </Text>
                   {item === value && (
@@ -92,11 +94,13 @@ function SelectPicker({ value, options, onSelect }: {
 }
 
 export function OptionsRow(props: RowProps) {
+  const { isDark, colors } = useTheme();
+
   const content = (
     <View style={styles.row}>
-      <Text style={styles.label}>{props.label}</Text>
+      <Text style={[styles.label, { color: colors.text }]}>{props.label}</Text>
       {props.type === 'navigation' ? (
-        <Ionicons name="chevron-forward" size={18} color="white" />
+        <Ionicons name="chevron-forward" size={18} color={colors.text} />
       ) : props.type === 'toggle' ? (
         <PillToggle value={props.value} onToggle={props.onToggle} />
       ) : props.type === 'select' ? (
@@ -129,18 +133,22 @@ type ProfileOptionsContainerProps = {
 };
 
 export function ProfileOptionsContainer({ children, style }: ProfileOptionsContainerProps) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  const { isDark, colors } = useTheme();
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]}>
+      {children}
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1C1C2E',
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingVertical: 8,
     gap: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
   },
   row: {
     flexDirection: 'row',
@@ -149,7 +157,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   label: {
-    color: 'white',
     fontSize: 16,
   },
 
@@ -181,29 +188,24 @@ const styles = StyleSheet.create({
   selectButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0A0A12',
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 6,
     gap: 6,
   },
   selectButtonText: {
-    color: 'white',
     fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     paddingHorizontal: 40,
   },
   modalContent: {
-    backgroundColor: '#1C1C2E',
     borderRadius: 16,
     overflow: 'hidden',
     maxHeight: 300,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
   },
   option: {
     flexDirection: 'row',
@@ -212,15 +214,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
   },
-  optionSelected: {
-    backgroundColor: '#0A0A12',
-  },
   optionText: {
-    color: '#6B6B8A',
     fontSize: 15,
-  },
-  optionTextSelected: {
-    color: 'white',
-    fontWeight: '600',
   },
 });

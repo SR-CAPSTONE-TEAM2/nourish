@@ -2,7 +2,7 @@ import { StyleSheet, Pressable, View } from 'react-native';
 import { Image } from 'expo-image';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/context/theme-context';
 import { MealCardData } from './types';
 
 interface MealCardProps {
@@ -11,7 +11,7 @@ interface MealCardProps {
 }
 
 export function MealCard({ data, onPress }: MealCardProps) {
-  const theme = useColorScheme() ?? 'light';
+  const { isDark, colors } = useTheme();
 
   return (
     <Pressable
@@ -19,7 +19,7 @@ export function MealCard({ data, onPress }: MealCardProps) {
       disabled={!onPress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: theme === 'light' ? '#ffffff' : '#1C1C2E' },
+        { backgroundColor: colors.card },
         pressed && onPress && styles.pressed,
       ]}
     >

@@ -1,4 +1,5 @@
 import { View, Text, Image, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { useTheme } from '@/context/theme-context';
 
 type LinkedAppItemProps = {
   name: string;
@@ -11,31 +12,32 @@ type LinkedAppItemProps = {
 };
 
 export function LinkedAppItem({ name, icon, linkedAccount, connectedLabel, onLink, onUnlink, style }: LinkedAppItemProps) {
+  const { isDark, colors } = useTheme();
   const isLinked = !!linkedAccount;
 
   return (
-    <View style={[styles.card, style]}>
+    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, style]}>
       <Image source={icon} style={styles.icon} />
       <View style={styles.textContainer}>
-        <Text style={styles.appName}>{name}</Text>
+        <Text style={[styles.appName, { color: colors.text }]}>{name}</Text>
         {isLinked ? (
           <>
-            <Text style={styles.accountLabel}>
+            <Text style={[styles.accountLabel, { color: colors.textMuted }]}>
               {connectedLabel ? 'Status :' : 'Linked Account:'}
             </Text>
-            <Text style={styles.accountEmail}>
+            <Text style={[styles.accountEmail, { color: colors.text }]}>
               {connectedLabel ?? linkedAccount}
             </Text>
           </>
         ) : (
-          <Text style={styles.accountLabel}>Tap to link your account</Text>
+          <Text style={[styles.accountLabel, { color: colors.textMuted }]}>Tap to link your account</Text>
         )}
       </View>
       <TouchableOpacity
-        style={[styles.button, isLinked ? styles.unlinkButton : styles.linkButton]}
+        style={[styles.button, isLinked ? [styles.unlinkButton, { borderColor: colors.textMuted }] : styles.linkButton]}
         onPress={isLinked ? onUnlink : onLink}
       >
-        <Text style={[styles.buttonText, isLinked && styles.unlinkButtonText]}>
+        <Text style={[styles.buttonText, isLinked && { color: colors.textSecondary }]}>
           {isLinked ? 'Unlink' : 'Link'}
         </Text>
       </TouchableOpacity>
@@ -47,12 +49,10 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1C1C2E',
     borderRadius: 16,
     padding: 16,
     gap: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -69,17 +69,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   appName: {
-    color: 'white',
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 4,
   },
   accountLabel: {
-    color: '#6B6B8A',
     fontSize: 14,
   },
   accountEmail: {
-    color: 'white',
     fontSize: 14,
   },
   button: {
@@ -95,14 +92,10 @@ const styles = StyleSheet.create({
   unlinkButton: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#6B6B8A',
   },
   buttonText: {
     fontSize: 14,
     fontWeight: '600',
     color: 'black',
-  },
-  unlinkButtonText: {
-    color: '#aaa',
   },
 });
