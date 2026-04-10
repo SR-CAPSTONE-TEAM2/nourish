@@ -327,6 +327,15 @@ export default function JournalScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+        
+        {/* AI Diet Generator Button */}
+        <TouchableOpacity 
+          style={styles.aiFab} 
+          onPress={() => router.push('/(protected)/(pages)/journal/ai-generate' as any)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="sparkles" size={24} color="#FFF" />
+        </TouchableOpacity>
       </ThemedView>
 
       {/* Meal Journal Modal */}
@@ -519,5 +528,21 @@ const styles = StyleSheet.create({
   emptyMealsText: {
     fontSize: 13,
     opacity: 0.5,
+  },
+  aiFab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#8B5CF6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
 });

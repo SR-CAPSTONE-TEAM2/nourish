@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import React, { useMemo, useState } from 'react';
+import Markdown from 'react-native-markdown-display';
 import { View, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -245,13 +246,13 @@ export default function HomeScreen() {
         {thought ? (
           <View style={styles.thoughtContainer}>
             <ThemedText style={styles.thoughtLabel}>AI THOUGHT PROCESS</ThemedText>
-            <ThemedText style={styles.thoughtText}>{thought}</ThemedText>
+            <Markdown style={thoughtMarkdownStyles}>{thought}</Markdown>
           </View>
         ) : null}
 
         {answer ? (
           <View style={styles.answerContainer}>
-            <ThemedText style={styles.answerText}>{answer}</ThemedText>
+            <Markdown style={markdownStyles}>{answer}</Markdown>
           </View>
         ) : null}
 
@@ -428,4 +429,26 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontStyle: 'italic',
   },
-})
+});
+
+const markdownStyles = {
+  body: { color: '#E2E8F0', fontFamily: 'Ubuntu_400Regular', fontSize: 14, lineHeight: 22 },
+  strong: { fontFamily: 'Ubuntu_700Bold' },
+  em: { fontStyle: 'italic' },
+  heading1: { fontFamily: 'Ubuntu_700Bold', fontSize: 20, marginTop: 12, marginBottom: 8, color: '#FFFFFF' },
+  heading2: { fontFamily: 'Ubuntu_700Bold', fontSize: 18, marginTop: 10, marginBottom: 6, color: '#FFFFFF' },
+  heading3: { fontFamily: 'Ubuntu_700Bold', fontSize: 16, marginTop: 8, marginBottom: 4, color: '#FFFFFF' },
+  code_inline: { backgroundColor: 'rgba(255,255,255,0.1)', fontFamily: 'monospace', padding: 2, borderRadius: 4 },
+  code_block: { backgroundColor: 'rgba(255,255,255,0.05)', fontFamily: 'monospace', padding: 10, borderRadius: 8, color: '#A78BFA' },
+  link: { color: '#8B5CF6' },
+};
+
+const thoughtMarkdownStyles = {
+  body: { color: '#94A3B8', fontFamily: 'Ubuntu_400Regular', fontSize: 12, lineHeight: 18, fontStyle: 'italic' },
+  strong: { fontFamily: 'Ubuntu_700Bold' },
+  em: { fontStyle: 'italic' },
+  heading1: { fontFamily: 'Ubuntu_700Bold', fontSize: 18, marginTop: 12, marginBottom: 8, color: '#CBD5E1' },
+  heading2: { fontFamily: 'Ubuntu_700Bold', fontSize: 16, marginTop: 10, marginBottom: 6, color: '#CBD5E1' },
+  code_inline: { backgroundColor: 'rgba(255,255,255,0.05)', fontFamily: 'monospace', padding: 2, borderRadius: 4 },
+  link: { color: '#A78BFA' },
+};
