@@ -36,7 +36,7 @@ Deno.serve(async (req) => { //req is query from app
   console.log("[DEBUG] Query: ", query)
   console.log("[DEBUG] Nutrition Data provided: ", !!nutritionData)
 
-  const ollama = new Ollama({ host: 'http://host.docker.internal:11434' });
+  const ollama = new Ollama({ host: 'http://100.82.27.91:11434' });
 
   let prompt = "";
   if (nutritionData) {
