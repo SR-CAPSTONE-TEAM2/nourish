@@ -5,7 +5,6 @@ import {
   View,
   StyleSheet,
   ActivityIndicator,
-  useColorScheme,
 } from 'react-native';
 import { MealEntry } from '@/types/diets-meals';
 import { MealEntryCard } from './meal-entry-card';
@@ -26,9 +25,6 @@ export const MealEntryList: React.FC<MealEntryListProps> = ({
   onDelete,
   onRefresh,
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
   const groupEntriesByDate = (entries: MealEntry[]) => {
     const groups: { [key: string]: MealEntry[] } = {};
 

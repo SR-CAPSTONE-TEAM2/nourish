@@ -1,13 +1,15 @@
 import { Tabs } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
 import { useUser } from '@/context/user-context';
+import { useTheme } from '@/context/theme-context';
 
 export default function TabLayout() {
   const { loading } = useUser();
+  const { isDark, colors } = useTheme();
 
   if (loading) return null;
   return (
@@ -17,11 +19,11 @@ export default function TabLayout() {
         freezeOnBlur: true,
         headerShown: false,
         tabBarButton: HapticTab,
-        tabBarActiveTintColor: '#8B5CF6',
-        tabBarInactiveTintColor: '#6B6B8A',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
         tabBarStyle: {
-          backgroundColor: '#0F0F1A',
-          borderTopColor: 'rgba(255,255,255,0.07)',
+          backgroundColor: isDark ? '#0F0F1A' : '#FFFFFF',
+          borderTopColor: isDark ? 'rgba(255,255,255,0.07)' : '#E5E5E7',
           borderTopWidth: 1,
           elevation: 0,
         },

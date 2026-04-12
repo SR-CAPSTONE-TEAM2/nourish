@@ -1,4 +1,6 @@
-// Always return 'dark' to enforce the global dark modern theme
+import { useTheme } from '@/context/theme-context';
+
 export function useColorScheme() {
-  return 'dark' as const;
+  const { isDark } = useTheme();
+  return isDark ? 'dark' : 'light';
 }

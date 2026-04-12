@@ -1,6 +1,7 @@
 // context/theme-context.tsx
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useColorScheme, Appearance } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type ThemeMode = 'light' | 'dark' | 'system';
 
@@ -16,6 +17,11 @@ interface ThemeColors {
   success: string;
   danger: string;
   icon: string;
+  surface: string;
+  surfaceHighlight: string;
+  inputBackground: string;
+  overlay: string;
+  borderHighlight: string;
 }
 
 interface ThemeContextType {
@@ -24,6 +30,8 @@ interface ThemeContextType {
   setThemeMode: (mode: ThemeMode) => void;
   colors: ThemeColors;
 }
+
+const THEME_STORAGE_KEY = '@nourish_theme_mode';
 
 const lightColors: ThemeColors = {
   background: '#F5F5F5',
@@ -37,27 +45,51 @@ const lightColors: ThemeColors = {
   success: '#22C55E',
   danger: '#EF4444',
   icon: '#000000',
+  surface: '#FFFFFF',
+  surfaceHighlight: '#F0EBF8',
+  inputBackground: '#F0F0F0',
+  overlay: 'rgba(0,0,0,0.5)',
+  borderHighlight: '#D0D0D0',
 };
 
 const darkColors: ThemeColors = {
-  background: '#121212',
+  background: '#0D0D1A',
   backgroundSecondary: '#1C1C2E',
-  card: '#1C1C2E',
+  card: '#1A1A2E',
   text: '#FFFFFF',
   textSecondary: '#AAAAAA',
-  textMuted: '#888888',
+  textMuted: '#6B6B8A',
   border: '#2D2D3D',
   primary: '#8B5CF6',
   success: '#22C55E',
   danger: '#EF4444',
   icon: '#FFFFFF',
+  surface: '#1A1A2E',
+  surfaceHighlight: '#252536',
+  inputBackground: '#212121',
+  overlay: 'rgba(0,0,0,0.74)',
+  borderHighlight: '#3D3D4D',
 };
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useColorScheme();
-  const [themeMode, setThemeMode] = useState<ThemeMode>('system');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>('light');
+
+  // Load persisted theme on mount
+  useEffect(() => {
+    AsyncStorage.getItem(THEME_STORAGE_KEY).then(saved => {
+      if (saved === 'light' || saved === 'dark' || saved === 'system') {
+        setThemeModeState(saved);
+      }
+    });
+  }, []);
+
+  const setThemeMode = (mode: ThemeMode) => {
+    setThemeModeState(mode);
+    AsyncStorage.setItem(THEME_STORAGE_KEY, mode);
+  };
 
   // Determine if dark mode based on theme mode setting
   const isDark =
