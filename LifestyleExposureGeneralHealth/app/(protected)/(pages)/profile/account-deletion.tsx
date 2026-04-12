@@ -4,11 +4,13 @@ import AppleHealthKit from 'react-native-health';
 import { Platform } from 'react-native';
 import { LinkedAppItem } from '@/components/ui/containers/linked-app-item';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/context/theme-context';
 
 export default function AccountDeletionScreen() {
+  const { isDark, colors } = useTheme();
 
   return (
-    <View>
+    <View style={{ backgroundColor: colors.background, flex: 1 }}>
       <ThemedText type="title" style={{ marginTop: 24, marginLeft: 24 }}>
         Delete Account
       </ThemedText>

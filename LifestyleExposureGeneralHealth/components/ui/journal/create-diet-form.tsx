@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
-  useColorScheme,
   Alert,
   ActivityIndicator,
   Keyboard,
@@ -24,6 +23,7 @@ import { ThemedView } from '@/components/themed-view';
 import { AVAILABLE_MEAL_TYPES, CreateDietInput, MealType } from '@/types/diets-meals';
 import { supabase } from '@/lib/supabase';
 import { TemplateMeal, FoodResult, SelectedIngredient } from '@/types/diets-meals';
+import { useTheme } from '@/context/theme-context';
 
 interface CreateDietFormProps {
   onSubmit: (diet: CreateDietInput) => Promise<void>;
@@ -135,13 +135,13 @@ async function searchFoods(
 // ─── Sub-Components ──────────────────────────────────────────────────────────
 
 /** Dashed "Add new meal" card */
-function AddMealButton({ onPress, isDark }: { onPress: () => void; isDark: boolean }) {
+function AddMealButton({ onPress, isDark, colors }: { onPress: () => void; isDark: boolean; colors: any }) {
   return (
     <TouchableOpacity
       style={[
         styles.addMealCard,
         {
-          borderColor: isDark ? '#3D3D4D' : '#D0D0D0',
+          borderColor: colors.borderHighlight,
           backgroundColor: isDark ? 'rgba(45,45,61,0.3)' : 'rgba(245,245,245,0.5)',
         },
       ]}
@@ -151,7 +151,7 @@ function AddMealButton({ onPress, isDark }: { onPress: () => void; isDark: boole
       <View
         style={[
           styles.addMealIconWrap,
-          { backgroundColor: isDark ? '#2D2D3D' : '#F0EBF8' },
+          { backgroundColor: colors.surfaceHighlight },
         ]}
       >
         <Ionicons name="add" size={24} color="#8B5CF6" />
@@ -167,23 +167,25 @@ function TemplateMealCard({
   onRemove,
   onRatingChange,
   isDark,
+  colors,
 }: {
   meal: TemplateMeal;
   onRemove: () => void;
   onRatingChange: (rating: number | null) => void;
   isDark: boolean;
+  colors: any;
 }) {
   return (
     <View
       style={[
         styles.templateMealCard,
-        { backgroundColor: isDark ? '#1E1E2E' : '#FFFFFF' },
+        { backgroundColor: colors.card },
       ]}
     >
       <View
         style={[
           styles.mealImagePlaceholder,
-          { backgroundColor: isDark ? '#2D2D3D' : '#F0EBF8' },
+          { backgroundColor: colors.surfaceHighlight },
         ]}
       >
         <ThemedText style={styles.mealEmoji}>🍽️</ThemedText>
@@ -195,7 +197,7 @@ function TemplateMealCard({
             {meal.name}
           </ThemedText>
           <TouchableOpacity onPress={onRemove} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color={isDark ? '#555' : '#CCC'} />
+            <Ionicons name="close-circle" size={18} color={colors.textMuted} />
           </TouchableOpacity>
         </View>
 
@@ -224,7 +226,7 @@ function TemplateMealCard({
               <Ionicons
                 name={meal.rating && meal.rating >= star ? 'star' : 'star-outline'}
                 size={16}
-                color={meal.rating && meal.rating >= star ? '#fbbf24' : isDark ? '#444' : '#CCC'}
+                color={meal.rating && meal.rating >= star ? '#fbbf24' : colors.textMuted}
               />
             </TouchableOpacity>
           ))}
@@ -243,16 +245,18 @@ function SuggestionCard({
   meal,
   onAdd,
   isDark,
+  colors,
 }: {
   meal: TemplateMeal;
   onAdd: () => void;
   isDark: boolean;
+  colors: any;
 }) {
   return (
     <TouchableOpacity
       style={[
         styles.suggestionCard,
-        { backgroundColor: isDark ? '#1E1E2E' : '#FFFFFF' },
+        { backgroundColor: colors.card },
       ]}
       onPress={onAdd}
       activeOpacity={0.75}
@@ -260,7 +264,7 @@ function SuggestionCard({
       <View
         style={[
           styles.suggestionImage,
-          { backgroundColor: isDark ? '#2D2D3D' : '#F0EBF8' },
+          { backgroundColor: colors.surfaceHighlight },
         ]}
       >
         <ThemedText style={styles.suggestionEmoji}>🍽️</ThemedText>
@@ -300,12 +304,14 @@ function AddMealSheet({
   onAdd,
   mealType,
   isDark,
+  colors,
 }: {
   visible: boolean;
   onClose: () => void;
   onAdd: (meal: TemplateMeal) => void;
   mealType: string;
   isDark: boolean;
+  colors: any;
 }) {
   const [mealName, setMealName] = useState('');
   const [query, setQuery] = useState('');
@@ -476,10 +482,10 @@ function AddMealSheet({
         <Animated.View
           style={[
             styles.sheet,
-            { transform: [{ translateY: slideAnim }], backgroundColor: isDark ? '#181818' : '#FFFFFF' },
+            { transform: [{ translateY: slideAnim }], backgroundColor: isDark ? '#181818' : '#FFFFFF', borderTopColor: colors.border },
           ]}
         >
-          <View style={styles.sheetHandle} />
+          <View style={[styles.sheetHandle, { backgroundColor: colors.textMuted }]} />
 
           {/* Header */}
           <View style={styles.sheetHeader}>
@@ -491,8 +497,8 @@ function AddMealSheet({
                 </ThemedText>
               </View>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.sheetIconBtn}>
-              <Ionicons name="close" size={20} color={isDark ? '#888' : '#666'} />
+            <TouchableOpacity onPress={onClose} style={[styles.sheetIconBtn, { backgroundColor: colors.surfaceHighlight }]}>
+              <Ionicons name="close" size={20} color={colors.textMuted} />
             </TouchableOpacity>
           </View>
 
@@ -502,13 +508,13 @@ function AddMealSheet({
               style={[
                 styles.mealNameInput,
                 {
-                  backgroundColor: isDark ? '#212121' : '#F5F5F5',
-                  color: isDark ? '#e8e8e8' : '#111',
-                  borderColor: isDark ? '#2e2e2e' : '#E0E0E0',
+                  backgroundColor: colors.inputBackground,
+                  color: colors.text,
+                  borderColor: colors.border,
                 },
               ]}
               placeholder="Meal name (optional)"
-              placeholderTextColor={isDark ? '#555' : '#999'}
+              placeholderTextColor={colors.textMuted}
               value={mealName}
               onChangeText={setMealName}
               maxLength={50}
@@ -520,27 +526,27 @@ function AddMealSheet({
             style={[
               styles.sheetSearchBox,
               {
-                borderColor: query ? accentColor + '99' : isDark ? '#2e2e2e' : '#E0E0E0',
-                backgroundColor: isDark ? '#212121' : '#F5F5F5',
+                borderColor: query ? accentColor + '99' : colors.border,
+                backgroundColor: colors.inputBackground,
               },
             ]}
           >
-            <Ionicons name="search" size={16} color={isDark ? '#555' : '#999'} />
+            <Ionicons name="search" size={16} color={colors.textMuted} />
             <TextInput
-              style={[styles.sheetSearchInput, { color: isDark ? '#e8e8e8' : '#111' }]}
+              style={[styles.sheetSearchInput, { color: colors.text }]}
               placeholder="Search ingredients…"
-              placeholderTextColor={isDark ? '#444' : '#999'}
+              placeholderTextColor={colors.textMuted}
               value={query}
               onChangeText={setQuery}
               autoCorrect={false}
               returnKeyType="search"
             />
             {searching ? (
-              <ActivityIndicator size="small" color="#555" />
+              <ActivityIndicator size="small" color={colors.textMuted} />
             ) : (
               query.length > 0 && (
                 <TouchableOpacity onPress={() => { setQuery(''); setResults([]); }}>
-                  <Ionicons name="close-circle" size={16} color={isDark ? '#555' : '#999'} />
+                  <Ionicons name="close-circle" size={16} color={colors.textMuted} />
                 </TouchableOpacity>
               )
             )}
@@ -548,7 +554,7 @@ function AddMealSheet({
 
           {/* Search results dropdown */}
           {results.length > 0 && (
-            <View style={[styles.sheetDropdown, { backgroundColor: isDark ? '#1e1e1e' : '#FAFAFA', borderColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}>
+            <View style={[styles.sheetDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <FlatList
                 data={results}
                 keyExtractor={(item) => String(item.fdc_id)}
@@ -574,16 +580,16 @@ function AddMealSheet({
                     )}
                   </TouchableOpacity>
                 )}
-                ItemSeparatorComponent={() => <View style={[styles.sheetSep, { backgroundColor: isDark ? '#252525' : '#E8E8E8' }]} />}
+                ItemSeparatorComponent={() => <View style={[styles.sheetSep, { backgroundColor: colors.border }]} />}
                 ListFooterComponent={
                   hasMore ? (
                     <TouchableOpacity
-                      style={styles.sheetLoadMoreBtn}
+                      style={[styles.sheetLoadMoreBtn, { borderTopColor: colors.border }]}
                       onPress={loadMore}
                       disabled={loadingMore}
                     >
                       {loadingMore ? (
-                        <ActivityIndicator size="small" color="#555" />
+                        <ActivityIndicator size="small" color={colors.textMuted} />
                       ) : (
                         <ThemedText style={styles.sheetLoadMoreText}>Load more results…</ThemedText>
                       )}
@@ -617,7 +623,7 @@ function AddMealSheet({
                   key={item.fdc_id}
                   style={[
                     styles.sheetSelectedRow,
-                    { backgroundColor: isDark ? '#212121' : '#F5F5F5', borderColor: isDark ? '#2a2a2a' : '#E0E0E0' },
+                    { backgroundColor: colors.inputBackground, borderColor: colors.border },
                   ]}
                 >
                   <View style={styles.sheetSelectedInfo}>
@@ -634,14 +640,14 @@ function AddMealSheet({
                   </View>
                   <View style={styles.sheetQtyRow}>
                     <TouchableOpacity
-                      style={[styles.sheetQtyBtn, { backgroundColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}
+                      style={[styles.sheetQtyBtn, { backgroundColor: colors.surfaceHighlight }]}
                       onPress={() => changeQty(item.fdc_id, -1)}
                     >
                       <ThemedText style={styles.sheetQtyBtnText}>−</ThemedText>
                     </TouchableOpacity>
                     <ThemedText style={styles.sheetQtyNum}>{item.qty}</ThemedText>
                     <TouchableOpacity
-                      style={[styles.sheetQtyBtn, { backgroundColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}
+                      style={[styles.sheetQtyBtn, { backgroundColor: colors.surfaceHighlight }]}
                       onPress={() => changeQty(item.fdc_id, 1)}
                     >
                       <ThemedText style={styles.sheetQtyBtnText}>+</ThemedText>
@@ -660,21 +666,21 @@ function AddMealSheet({
 
           {/* Macro summary + Add button */}
           {selected.length > 0 && (
-            <View style={[styles.sheetFooter, { borderTopColor: isDark ? '#232323' : '#E8E8E8' }]}>
+            <View style={[styles.sheetFooter, { borderTopColor: colors.border }]}>
               <View style={styles.sheetMacroRow}>
-                <View style={[styles.sheetMacroPill, { backgroundColor: isDark ? '#212121' : '#F5F5F5', borderColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}>
+                <View style={[styles.sheetMacroPill, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                   <ThemedText style={[styles.sheetMacroVal, { color: '#f97316' }]}>{totalCalories}</ThemedText>
                   <ThemedText style={styles.sheetMacroLabel}>kcal</ThemedText>
                 </View>
-                <View style={[styles.sheetMacroPill, { backgroundColor: isDark ? '#212121' : '#F5F5F5', borderColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}>
+                <View style={[styles.sheetMacroPill, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                   <ThemedText style={[styles.sheetMacroVal, { color: '#34d399' }]}>{totalProtein}g</ThemedText>
                   <ThemedText style={styles.sheetMacroLabel}>protein</ThemedText>
                 </View>
-                <View style={[styles.sheetMacroPill, { backgroundColor: isDark ? '#212121' : '#F5F5F5', borderColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}>
+                <View style={[styles.sheetMacroPill, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                   <ThemedText style={[styles.sheetMacroVal, { color: '#a78bfa' }]}>{totalCarbs}g</ThemedText>
                   <ThemedText style={styles.sheetMacroLabel}>carbs</ThemedText>
                 </View>
-                <View style={[styles.sheetMacroPill, { backgroundColor: isDark ? '#212121' : '#F5F5F5', borderColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}>
+                <View style={[styles.sheetMacroPill, { backgroundColor: colors.inputBackground, borderColor: colors.border }]}>
                   <ThemedText style={[styles.sheetMacroVal, { color: '#60a5fa' }]}>{totalFat}g</ThemedText>
                   <ThemedText style={styles.sheetMacroLabel}>fat</ThemedText>
                 </View>
@@ -696,7 +702,7 @@ function AddMealSheet({
 }
 
 /** Meal Section Component */
-function MealSection({
+function MealSectionBlock({
   mealKey,
   meals,
   onAddPress,
@@ -704,6 +710,7 @@ function MealSection({
   onRatingChange,
   onAddSuggestion,
   isDark,
+  colors,
 }: {
   mealKey: string;
   meals: TemplateMeal[];
@@ -712,6 +719,7 @@ function MealSection({
   onRatingChange: (mealId: string, rating: number | null) => void;
   onAddSuggestion: (meal: TemplateMeal) => void;
   isDark: boolean;
+  colors: any;
 }) {
   const mealInfo = AVAILABLE_MEAL_TYPES.find((m) => m.key === mealKey);
   const suggestions = SUGGESTION_MEALS[mealKey] || SUGGESTION_MEALS['lunch'] || [];
@@ -723,7 +731,7 @@ function MealSection({
         <View
           style={[
             styles.mealSectionIconWrap,
-            { backgroundColor: isDark ? '#2D2D3D' : '#F0EBF8' },
+            { backgroundColor: colors.surfaceHighlight },
           ]}
         >
           <Ionicons name={(mealInfo?.icon as any) || 'restaurant-outline'} size={18} color="#8B5CF6" />
@@ -746,19 +754,20 @@ function MealSection({
           onRemove={() => onRemoveMeal(meal.id)}
           onRatingChange={(rating) => onRatingChange(meal.id, rating)}
           isDark={isDark}
+          colors={colors}
         />
       ))}
 
       {/* Add New Meal Button */}
-      <AddMealButton onPress={onAddPress} isDark={isDark} />
+      <AddMealButton onPress={onAddPress} isDark={isDark} colors={colors} />
 
       {/* Suggestions Divider */}
       {suggestions.length > 0 && (
         <>
           <View style={styles.suggestionsDivider}>
-            <View style={[styles.dividerLine, { backgroundColor: isDark ? '#2D2D3D' : '#E8E8E8' }]} />
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
             <ThemedText style={styles.suggestionsLabel}>Suggestions</ThemedText>
-            <View style={[styles.dividerLine, { backgroundColor: isDark ? '#2D2D3D' : '#E8E8E8' }]} />
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
           </View>
 
           {/* Horizontal Suggestions Scroll */}
@@ -773,6 +782,7 @@ function MealSection({
                 meal={suggestion}
                 onAdd={() => onAddSuggestion({ ...suggestion, id: generateId() })}
                 isDark={isDark}
+                colors={colors}
               />
             ))}
           </ScrollView>
@@ -791,8 +801,7 @@ export function CreateDietForm({
   initialData,
   isEditing = false,
 }: CreateDietFormProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
 
   const [dietName, setDietName] = useState(initialData?.diet_name || '');
   const [description, setDescription] = useState(initialData?.description || '');
@@ -945,22 +954,22 @@ export function CreateDietForm({
   const inputStyle = [
     styles.input,
     {
-      backgroundColor: isDark ? '#2D2D3D' : '#F5F5F5',
-      color: isDark ? '#FFFFFF' : '#000000',
-      borderColor: isDark ? '#3D3D4D' : '#E0E0E0',
+      backgroundColor: colors.surfaceHighlight,
+      color: colors.text,
+      borderColor: colors.borderHighlight,
     },
   ];
 
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: isDark ? '#2D2D3D' : '#EBEBEB' }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <Pressable
           onPress={handleCancel}
           style={({ pressed }) => [styles.headerButton, pressed && styles.headerButtonPressed]}
           hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
-          <Ionicons name="close" size={24} color={isDark ? '#FFFFFF' : '#000000'} />
+          <Ionicons name="close" size={24} color={colors.text} />
         </Pressable>
         <ThemedText style={styles.title}>
           {isEditing ? 'Edit Diet Plan' : 'Create Diet Plan'}
@@ -997,7 +1006,7 @@ export function CreateDietForm({
             value={dietName}
             onChangeText={setDietName}
             placeholder="e.g., My Custom Diet"
-            placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+            placeholderTextColor={colors.textMuted}
             maxLength={50}
             autoCapitalize="words"
             autoFocus={!isEditing}
@@ -1014,7 +1023,7 @@ export function CreateDietForm({
             value={description}
             onChangeText={setDescription}
             placeholder="Describe your diet plan..."
-            placeholderTextColor={isDark ? '#6B7280' : '#9CA3AF'}
+            placeholderTextColor={colors.textMuted}
             multiline
             numberOfLines={3}
             maxLength={200}
@@ -1049,8 +1058,8 @@ export function CreateDietForm({
                   style={({ pressed }) => [
                     styles.mealChip,
                     {
-                      backgroundColor: isSelected ? '#8B5CF6' : isDark ? '#2D2D3D' : '#F5F5F5',
-                      borderColor: isSelected ? '#8B5CF6' : isDark ? '#3D3D4D' : '#E0E0E0',
+                      backgroundColor: isSelected ? '#8B5CF6' : colors.surfaceHighlight,
+                      borderColor: isSelected ? '#8B5CF6' : colors.borderHighlight,
                       opacity: pressed ? 0.7 : 1,
                     },
                   ]}
@@ -1059,12 +1068,12 @@ export function CreateDietForm({
                   <Ionicons
                     name={meal.icon as any}
                     size={16}
-                    color={isSelected ? '#FFFFFF' : isDark ? '#AAAAAA' : '#555555'}
+                    color={isSelected ? '#FFFFFF' : colors.textSecondary}
                   />
                   <ThemedText
                     style={[
                       styles.mealChipLabel,
-                      { color: isSelected ? '#FFFFFF' : isDark ? '#FFFFFF' : '#000000' },
+                      { color: isSelected ? '#FFFFFF' : colors.text },
                     ]}
                   >
                     {meal.label}
@@ -1087,7 +1096,7 @@ export function CreateDietForm({
             </ThemedText>
 
             {selectedMeals.map((mealKey) => (
-              <MealSection
+              <MealSectionBlock
                 key={mealKey}
                 mealKey={mealKey}
                 meals={mealEntries[mealKey] || []}
@@ -1096,6 +1105,7 @@ export function CreateDietForm({
                 onRatingChange={(mealId, rating) => handleRatingChange(mealKey, mealId, rating)}
                 onAddSuggestion={(meal) => handleAddSuggestion(mealKey, meal)}
                 isDark={isDark}
+                colors={colors}
               />
             ))}
           </View>
@@ -1136,6 +1146,7 @@ export function CreateDietForm({
         onAdd={handleAddMeal}
         mealType={activeMealType || ''}
         isDark={isDark}
+        colors={colors}
       />
     </ThemedView>
   );
@@ -1401,13 +1412,11 @@ const styles = StyleSheet.create({
     maxHeight: '92%',
     minHeight: '50%',
     borderTopWidth: 1,
-    borderTopColor: '#252525',
   },
   sheetHandle: {
     width: 38,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#303030',
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 6,
@@ -1432,7 +1441,6 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#242424',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1512,7 +1520,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#252525',
   },
   sheetLoadMoreText: {
     fontSize: 13,

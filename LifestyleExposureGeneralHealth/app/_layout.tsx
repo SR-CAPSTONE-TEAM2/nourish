@@ -2,11 +2,11 @@ import { useFonts, Ubuntu_400Regular, Ubuntu_700Bold } from '@expo-google-fonts/
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
-import { DarkTheme } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider as NavThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
-import { ThemeProvider } from '@/context/theme-context';
+import { ThemeProvider, useTheme } from '@/context/theme-context';
 
 // Custom dark navigation theme
 const AppDarkTheme = {
@@ -22,11 +22,41 @@ const AppDarkTheme = {
   },
 };
 
+const AppLightTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#F5F5F5',
+    card: '#FFFFFF',
+    text: '#000000',
+    border: '#E5E5E7',
+    primary: '#8B5CF6',
+    notification: '#8B5CF6',
+  },
+};
+
 export const unstable_settings = {
   anchor: '(pages)',
 };
 
 SplashScreen.preventAutoHideAsync();
+
+function InnerLayout() {
+  const { isDark } = useTheme();
+
+  return (
+    <NavThemeProvider value={isDark ? AppDarkTheme : AppLightTheme}>
+      <Stack>
+        <Stack.Screen name="index" options={{ headerShown: false }} />
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(protected)" options={{ headerShown: false }} />
+        {/*Add modals as we go */}
+        <Stack.Screen name="(modals)/food-modal" options={{ presentation: 'modal', headerShown: false }} />
+      </Stack>
+      <StatusBar style={isDark ? 'light' : 'dark'} />
+    </NavThemeProvider>
+  );
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -42,13 +72,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(protected)" options={{ headerShown: false }} />
-        {/*Add modals as we go */}
-        <Stack.Screen name="(modals)/food-modal" options={{ presentation: 'modal', headerShown: false }} />
-      </Stack>
+      <InnerLayout />
     </ThemeProvider>
   );
 }

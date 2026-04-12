@@ -2,8 +2,9 @@ import { supabase } from '@/lib/supabase';
 import { useEffect, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColorScheme, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import { StyleSheet, TouchableOpacity, TextInput } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/context/theme-context';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { HorizCardList } from '@/components/ui/carousels/horiz-card-list';
 import { DefaultCard } from '@/components/ui/cards/default-card';
@@ -12,8 +13,8 @@ import { UserProfile, Meal, Metric } from '@/types/types';
 import { useUser } from '@/context/user-context';
 
 export default function ProfileScreen() {
-  const colorScheme = useColorScheme();
-  const iconColor = colorScheme === 'dark' ? 'white' : 'black';
+  const { isDark, colors } = useTheme();
+  const iconColor = colors.icon;
 
   const [storeMealsDays, setStoreMealsDays] = useState('60 days');
 
@@ -35,7 +36,7 @@ export default function ProfileScreen() {
         }}
       />
       < ParallaxScrollView
-        headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}>
+        headerBackgroundColor={{ light: '#F5F5F5', dark: '#1C1C2E' }}>
         <ThemedText type="title">
           {`Hi, \n${profile?.first_name ?? profile?.username ?? 'there'} 👋`}
         </ThemedText>
@@ -91,8 +92,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   numberInput: {
-    backgroundColor: '#1C1C2E',
-    color: 'white',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 6,
