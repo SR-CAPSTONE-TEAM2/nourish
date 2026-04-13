@@ -56,7 +56,7 @@ export async function chatWithOllama(
   const controller = new AbortController()
   const timeoutId = setTimeout(
     () => controller.abort(),
-    options?.timeout ?? 30000
+    options?.timeout ?? 120000
   )
 
   try {
@@ -89,6 +89,30 @@ export async function chatWithOllama(
   } finally {
     clearTimeout(timeoutId)
   }
+}
+
+/**
+ * Extract a JSON object from a string that may contain surrounding text,
+ * markdown fencing, or other non-JSON content.
+ */
+function extractJson(raw: string): unknown | null {
+  // 1. Try parsing the raw string directly
+  try { return JSON.parse(raw.trim()) } catch {}
+
+  // 2. Try extracting from markdown code fences
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fenceMatch) {
+    try { return JSON.parse(fenceMatch[1].trim()) } catch {}
+  }
+
+  // 3. Find the first { and last } and try parsing that substring
+  const firstBrace = raw.indexOf('{')
+  const lastBrace = raw.lastIndexOf('}')
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try { return JSON.parse(raw.slice(firstBrace, lastBrace + 1)) } catch {}
+  }
+
+  return null
 }
 
 /**
@@ -128,42 +152,36 @@ export async function analyzeFoodItem(
     ? `\nAdditional info: ${modifierText.join(', ')}`
     : ''
 
+  const exampleJson = `{"ingredients":[{"name":"wheat flour","chemicals":["bromate"],"pesticides":["glyphosate"],"risk_score":2,"reasoning":"common grain"}],"overall_risk_score":2,"summary":"moderate risk"}`
+
   const response = await chatWithOllama([
     {
       role: 'system',
-      content: `You are a food safety analyst. Given a food item, identify its likely ingredients and any chemicals or pesticides commonly associated with those ingredients. Consider factors like whether the food is organic, the brand, and how it was produced.
+      content: `You are a food safety JSON API. You MUST respond with ONLY a JSON object, no other text. No markdown, no explanation, no code fences.
 
-Respond ONLY with valid JSON matching this exact schema — no markdown, no explanation outside the JSON:
-{
-  "ingredients": [
-    {
-      "name": "ingredient name",
-      "chemicals": ["chemical names commonly found in this ingredient"],
-      "pesticides": ["pesticide names commonly found on this ingredient"],
-      "risk_score": <number from -10 (very harmful) to +10 (very beneficial)>,
-      "reasoning": "brief explanation"
-    }
-  ],
-  "overall_risk_score": <number from -10 to +10>,
-  "summary": "brief overall assessment"
-}`,
+The JSON must have this structure:
+{"ingredients":[{"name":"string","chemicals":["string"],"pesticides":["string"],"risk_score":0,"reasoning":"string"}],"overall_risk_score":0,"summary":"string"}
+
+risk_score ranges from -10 (harmful) to +10 (beneficial). Keep ingredient lists short (max 5 ingredients).`,
     },
     {
       role: 'user',
-      content: `Analyze this food item: "${foodName}"${modifierStr}`,
+      content: `Analyze: "apple"`,
     },
-  ], { temperature: 0.3, timeout: 60000 })
+    {
+      role: 'assistant',
+      content: exampleJson,
+    },
+    {
+      role: 'user',
+      content: `Analyze: "${foodName}"${modifierStr}`,
+    },
+  ], { temperature: 0.1, timeout: 180000 })
 
-  // Parse the JSON response — strip any markdown fencing the LLM might add
-  const cleaned = response
-    .replace(/^```json\s*/i, '')
-    .replace(/^```\s*/i, '')
-    .replace(/\s*```$/i, '')
-    .trim()
-
-  try {
-    return JSON.parse(cleaned) as FoodAnalysisResult
-  } catch {
-    throw new Error(`Failed to parse LLM response as JSON: ${cleaned.slice(0, 200)}`)
+  // Extract JSON from the response — handle markdown fencing, leading text, etc.
+  const parsed = extractJson(response)
+  if (!parsed) {
+    throw new Error(`Failed to parse LLM response as JSON: ${response.slice(0, 300)}`)
   }
+  return parsed as FoodAnalysisResult
 }
