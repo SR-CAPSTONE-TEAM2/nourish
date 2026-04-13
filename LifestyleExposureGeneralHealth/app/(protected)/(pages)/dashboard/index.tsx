@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Alert,
   Platform,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
@@ -50,7 +51,10 @@ interface ScheduleEntry {
 function groupMealsByMonth(meals: Meal[]) {
   const map: Record<string, number> = {};
   meals.forEach(m => {
-    const key = MONTHS[new Date(m.meal_date).getMonth()];
+    const dateStr = (m as any).logged_date ?? m.meal_date;
+    if (!dateStr) return;
+    const [, monthStr] = dateStr.split('-');
+    const key = MONTHS[parseInt(monthStr, 10) - 1];
     map[key] = (map[key] ?? 0) + (m.total_calories ?? 0);
   });
   return MONTHS.map(month => ({ month, calories: Math.round(map[month] ?? 0) }));
@@ -59,7 +63,8 @@ function groupMealsByMonth(meals: Meal[]) {
 function groupMetricsByMonth(metrics: Metric[], field: keyof Metric) {
   const map: Record<string, number[]> = {};
   metrics.forEach(m => {
-    const key = MONTHS[new Date(m.observation_date).getMonth()];
+    const [, monthStr] = m.observation_date.split('-');
+    const key = MONTHS[parseInt(monthStr, 10) - 1];
     if (!map[key]) map[key] = [];
     const val = m[field];
     if (typeof val === 'number') map[key].push(val);
@@ -82,9 +87,9 @@ function getLatestMetric(metrics: Metric[], field: keyof Metric): string {
 }
 
 function getTotalCaloriesToday(meals: Meal[]): number {
-  const today = new Date().toDateString();
+  const todayStr = new Date().toISOString().split('T')[0];
   return meals
-    .filter(m => new Date(m.meal_date).toDateString() === today)
+    .filter(m => (m as any).logged_date?.startsWith(todayStr) ?? m.meal_date?.startsWith(todayStr))
     .reduce((sum, m) => sum + (m.total_calories ?? 0), 0);
 }
 
@@ -164,7 +169,7 @@ function MealRow({ meal, C }: { meal: Meal; C: Record<string, string> }) {
       <View style={styles.mealInfo}>
         <Text style={[styles.mealType, { color: C.textPrime }]}>{meal.meal_type ?? 'Meal'}</Text>
         <Text style={[styles.mealDate, { color: C.textSub }]}>
-          {new Date(meal.meal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+          {new Date((meal as any).logged_date ?? meal.meal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
         </Text>
       </View>
       <View style={styles.mealRight}>
@@ -363,6 +368,7 @@ export default function Dashboard() {
   const [todaySchedule, setTodaySchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const userIdRef = React.useRef<string | null>(null); // always-current ref, avoids stale closures
   const [activeTab, setActiveTab] = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories');
   const [showAddMeal, setShowAddMeal] = useState(false);
 
@@ -386,14 +392,20 @@ export default function Dashboard() {
   // ─── Data fetchers ──────────────────────────────────────────────────────────
 
   const refreshMeals = async (uid?: string) => {
-    const id = uid ?? userId;
+    const id = uid ?? userIdRef.current;
     if (!id) return;
+    // Sort descending so newest meals are always within Supabase's 1000-row default limit.
+    // Filter to last 365 days to keep chart data meaningful without hitting the row cap.
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const cutoff = oneYearAgo.toISOString().split('T')[0];
     const { data, error } = await supabase
-      .from('user_meals')
+      .from('meal_logs')
       .select('*')
       .eq('user_id', id)
-      .order('meal_date', { ascending: true });
-    if (!error && data) setMeals(data);
+      .gte('logged_date', cutoff)
+      .order('logged_date', { ascending: false });
+    if (!error && data) setMeals(data as any);
   };
 
   const refreshTodaySchedule = async (uid: string) => {
@@ -421,27 +433,35 @@ export default function Dashboard() {
       if (!user) { router.replace('/login'); return; }
 
       setUserId(user.id);
+      userIdRef.current = user.id;
+
+      const oneYearAgo = new Date();
+      oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+      const mealsCutoff = oneYearAgo.toISOString().split('T')[0];
 
       const [{ data: prof }, { data: mealData }, { data: metricData }] = await Promise.all([
         supabase.from('user_profiles').select('*').eq('user_id', user.id).single(),
-        supabase.from('user_meals').select('*').eq('user_id', user.id).order('meal_date', { ascending: true }),
+        supabase.from('meal_logs').select('*').eq('user_id', user.id).gte('logged_date', mealsCutoff).order('logged_date', { ascending: false }),
         supabase.from('user_metrics').select('*').eq('user_id', user.id).order('observation_date', { ascending: true }),
       ]);
 
       if (prof) setProfile(prof);
-      if (mealData) setMeals(mealData);
       if (metricData) setMetrics(metricData);
+      if (mealData) setMeals(mealData);
       await refreshTodaySchedule(user.id);
       setLoading(false);
     };
     load();
   }, []);
 
-  // Re-fetch today's schedule on focus (back-nav from meal-schedule page)
+  // Re-fetch both schedule and meals on every screen focus
+  // (covers back-nav, app reload, and any remount scenario)
   useFocusEffect(
     React.useCallback(() => {
       supabase.auth.getUser().then(({ data }) => {
-        if (data.user) refreshTodaySchedule(data.user.id);
+        if (!data.user) return;
+        refreshTodaySchedule(data.user.id);
+        refreshMeals(data.user.id);
       });
     }, []),
   );
@@ -449,29 +469,59 @@ export default function Dashboard() {
   // ─── Meal logging ───────────────────────────────────────────────────────────
 
   const logScheduledMeal = async (entry: ScheduleEntry): Promise<void> => {
-    if (!userId) return;
+    const uid = userIdRef.current;
+    if (!uid) return;
     const meal = entry.user_meals;
     const today = new Date().toISOString().split('T')[0];
-    const { error } = await supabase.from('user_meals').insert({
-      user_id: userId,
+
+    // Optimistic update — UI responds instantly
+    const optimisticId = `optimistic-${Date.now()}`;
+    const optimisticMeal = {
+      meal_id: optimisticId,
+      id: optimisticId,
+      user_id: uid,
       meal_type: entry.meal_type,
-      meal_name: meal?.meal_name ?? entry.meal_type,
-      meal_date: today,
+      logged_date: today,
       total_calories: meal?.total_calories ?? null,
       total_protein: meal?.total_protein ?? null,
       total_carbs: meal?.total_carbs ?? null,
       total_fat: meal?.total_fat ?? null,
-      meal_image: meal?.meal_image ?? null,
-    });
-    if (!error) await refreshMeals();
+    } as any;
+    setMeals(prev => [...prev, optimisticMeal]);
+
+    const { data: newMeal, error } = await supabase
+      .from('meal_logs')
+      .insert({
+        user_id: uid,
+        meal_type: entry.meal_type,
+        meal_name: meal?.meal_name ?? entry.meal_type,
+        logged_date: today,
+        total_calories: meal?.total_calories ?? null,
+        total_protein: meal?.total_protein ?? null,
+        total_carbs: meal?.total_carbs ?? null,
+        total_fat: meal?.total_fat ?? null,
+        meal_image: meal?.meal_image ?? null,
+      })
+      .select()
+      .single();
+
+    if (error || !newMeal) {
+      // Roll back optimistic entry and surface the error
+      setMeals(prev => prev.filter(m => m.meal_id !== optimisticId));
+      Alert.alert('Could not log meal', error?.message ?? 'Insert returned no data');
+    } else {
+      // Swap the optimistic placeholder for the confirmed DB row
+      setMeals(prev => [...prev.filter(m => m.meal_id !== optimisticId), newMeal]);
+    }
   };
 
   const isMealLoggedToday = (entry: ScheduleEntry): boolean => {
-    const today = new Date().toDateString();
-    return meals.some(m =>
-      new Date(m.meal_date).toDateString() === today &&
-      m.meal_type?.toLowerCase() === entry.meal_type.toLowerCase(),
-    );
+    const todayStr = new Date().toISOString().split('T')[0];
+    return meals.some(m => {
+      const dateStr = (m as any).logged_date ?? m.meal_date ?? '';
+      return String(dateStr).startsWith(todayStr) &&
+        String(m.meal_type ?? '').toLowerCase() === entry.meal_type.toLowerCase();
+    });
   };
 
   const signOut = async () => {
@@ -550,7 +600,11 @@ export default function Dashboard() {
   ];
 
   const recentMeals = [...meals]
-    .sort((a, b) => new Date(b.meal_date).getTime() - new Date(a.meal_date).getTime())
+    .sort((a, b) => {
+      const da = (a as any).logged_date ?? a.meal_date;
+      const db = (b as any).logged_date ?? b.meal_date;
+      return new Date(db).getTime() - new Date(da).getTime();
+    })
     .slice(0, 5);
 
   const greeting = (() => {
@@ -713,7 +767,7 @@ export default function Dashboard() {
 
         {/* ── Recent Meals ───────────────────────────────────────────────── */}
         <View style={[styles.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
-          <SectionHeader title="Recent Meals" subtitle={`${recentMeals.length} of ${meals.length} logged`} C={C} />
+          <SectionHeader title="Logged Meals" subtitle={`${recentMeals.length} of ${meals.length} total`} C={C} />
           <View style={[styles.panelDivider, { backgroundColor: C.border }]} />
           {recentMeals.length === 0 ? (
             <View style={styles.emptyState}>
@@ -723,7 +777,7 @@ export default function Dashboard() {
             </View>
           ) : (
             <View style={styles.mealList}>
-              {recentMeals.map(meal => <MealRow key={meal.meal_id} meal={meal} C={C} />)}
+              {recentMeals.map(meal => <MealRow key={(meal as any).id ?? meal.meal_id} meal={meal} C={C} />)}
             </View>
           )}
         </View>
