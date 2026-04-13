@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, useColorScheme } from 'react-native';
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
 import { useMealEntryCount } from '@/hooks/useMealEntryCount'; // see note below
+import { useTheme } from '@/context/theme-context';
 
 interface MealCardProps {
   mealKey: string;
@@ -12,8 +13,7 @@ interface MealCardProps {
 }
 
 export function MealCard({ mealKey, label, icon, onPress }: MealCardProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
 
   // Optional: show how many entries exist for this meal today
   const { count } = useMealEntryCount(mealKey);
@@ -22,7 +22,7 @@ export function MealCard({ mealKey, label, icon, onPress }: MealCardProps) {
     <TouchableOpacity
       style={[
         styles.card,
-        { backgroundColor: isDark ? '#1E1E2E' : '#FFFFFF' },
+        { backgroundColor: colors.card },
       ]}
       onPress={onPress}
       activeOpacity={0.75}
@@ -30,7 +30,7 @@ export function MealCard({ mealKey, label, icon, onPress }: MealCardProps) {
       <View
         style={[
           styles.iconContainer,
-          { backgroundColor: isDark ? '#2D2D3D' : '#F0EBF8' },
+          { backgroundColor: colors.surfaceHighlight },
         ]}
       >
         <Ionicons name={icon as any} size={22} color="#8B5CF6" />
@@ -48,7 +48,7 @@ export function MealCard({ mealKey, label, icon, onPress }: MealCardProps) {
       <Ionicons
         name="chevron-forward"
         size={18}
-        color={isDark ? '#555' : '#CCC'}
+        color={colors.textMuted}
       />
     </TouchableOpacity>
   );

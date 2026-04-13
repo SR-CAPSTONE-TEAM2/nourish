@@ -13,9 +13,19 @@ interface FoodModalProps {
 }
 
 export default function FoodModal() {
-  const { foodId } = useLocalSearchParams();
+  const { foodId, foodName, calories, protein, carbs, fat } = useLocalSearchParams();
 
-  const foodItem = SAMPLE_MEALS.find(item => item.id === foodId);
+  const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+
+  const sampleItem = SAMPLE_MEALS.find(item => item.id === pick(foodId));
+
+  const display = sampleItem ?? {
+    name: pick(foodName) ?? 'Food item',
+    calories: Number(pick(calories) ?? 0),
+    protein: Number(pick(protein) ?? 0),
+    carbs: Number(pick(carbs) ?? 0),
+    fat: Number(pick(fat) ?? 0),
+  };
 
   return (
     <View style={styles.modalOverlay}>
@@ -24,31 +34,25 @@ export default function FoodModal() {
           style={styles.modalClose}
           onPress={() => router.back()}
         >
-          <ThemedText type="title">×</ThemedText>
+        <ThemedText type="title">×</ThemedText>
         </TouchableOpacity>
-        {foodItem ? (
-          <>
-            <ThemedText type="title" style={styles.modalTitle}>{foodItem.name}</ThemedText>
-            <View style={styles.modalNutrientRow}>
-              <ThemedText type="subtitle">Calories</ThemedText>
-              <ThemedText type="defaultSemiBold">{foodItem.calories} kcal</ThemedText>
-            </View>
-            <View style={styles.modalNutrientRow}>
-              <ThemedText type="subtitle">Protein</ThemedText>
-              <ThemedText type="defaultSemiBold">{foodItem.protein}g</ThemedText>
-            </View>
-            <View style={styles.modalNutrientRow}>
-              <ThemedText type="subtitle">Carbs</ThemedText>
-              <ThemedText type="defaultSemiBold">{foodItem.carbs}g</ThemedText>
-            </View>
-            <View style={styles.modalNutrientRow}>
-              <ThemedText type="subtitle">Fat</ThemedText>
-              <ThemedText type="defaultSemiBold">{foodItem.fat}g</ThemedText>
-            </View>
-          </>
-        ) : (
-          <ThemedText>Food not found</ThemedText>
-        )}
+        <ThemedText type="title" style={styles.modalTitle}>{display.name}</ThemedText>
+        <View style={styles.modalNutrientRow}>
+          <ThemedText type="subtitle">Calories</ThemedText>
+          <ThemedText type="defaultSemiBold">{display.calories} kcal</ThemedText>
+        </View>
+        <View style={styles.modalNutrientRow}>
+          <ThemedText type="subtitle">Protein</ThemedText>
+          <ThemedText type="defaultSemiBold">{display.protein}g</ThemedText>
+        </View>
+        <View style={styles.modalNutrientRow}>
+          <ThemedText type="subtitle">Carbs</ThemedText>
+          <ThemedText type="defaultSemiBold">{display.carbs}g</ThemedText>
+        </View>
+        <View style={styles.modalNutrientRow}>
+          <ThemedText type="subtitle">Fat</ThemedText>
+          <ThemedText type="defaultSemiBold">{display.fat}g</ThemedText>
+        </View>
       </ThemedView>
     </View>
   );

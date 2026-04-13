@@ -6,12 +6,12 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MealEntry } from '@/types/diets-meals';
 import { MEAL_TYPES, MOOD_RATINGS, PHYSICAL_FEELINGS, EMOTIONAL_FEELINGS } from '@/constants/journal';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/context/theme-context';
 
 interface MealEntryCardProps {
   entry: MealEntry;
@@ -24,8 +24,7 @@ export const MealEntryCard: React.FC<MealEntryCardProps> = ({
   onEdit,
   onDelete,
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
 
   const mealTypeInfo = MEAL_TYPES.find((m) => m.value === entry.mealType);
   const moodInfo = MOOD_RATINGS.find((m) => m.value === entry.moodRating);
@@ -69,7 +68,7 @@ export const MealEntryCard: React.FC<MealEntryCardProps> = ({
       style={[
         styles.card,
         {
-          backgroundColor: isDark ? '#1C1C2E' : '#FFFFFF',
+          backgroundColor: colors.card,
           shadowColor: isDark ? '#000' : '#8B5CF6',
         },
       ]}
@@ -85,7 +84,7 @@ export const MealEntryCard: React.FC<MealEntryCardProps> = ({
         <View
           style={[
             styles.moodBadge,
-            { backgroundColor: isDark ? '#2D2D3A' : '#F5F5F7' },
+            { backgroundColor: colors.surfaceHighlight },
           ]}
         >
           <ThemedText style={styles.moodEmoji}>{moodInfo?.emoji}</ThemedText>
@@ -112,7 +111,7 @@ export const MealEntryCard: React.FC<MealEntryCardProps> = ({
                 key={feeling}
                 style={[
                   styles.tag,
-                  { backgroundColor: isDark ? '#2D2D3A' : 'rgba(139, 92, 246, 0.1)' },
+                  { backgroundColor: isDark ? colors.surfaceHighlight : 'rgba(139, 92, 246, 0.1)' },
                 ]}
               >
                 <ThemedText style={styles.tagText}>
@@ -136,7 +135,7 @@ export const MealEntryCard: React.FC<MealEntryCardProps> = ({
                 style={[
                   styles.tag,
                   styles.emotionalTag,
-                  { backgroundColor: isDark ? '#2D2D3A' : 'rgba(59, 130, 246, 0.1)' },
+                  { backgroundColor: isDark ? colors.surfaceHighlight : 'rgba(59, 130, 246, 0.1)' },
                 ]}
               >
                 <ThemedText style={styles.tagText}>
@@ -160,13 +159,13 @@ export const MealEntryCard: React.FC<MealEntryCardProps> = ({
       <View
         style={[
           styles.actions,
-          { borderTopColor: isDark ? '#2D2D3A' : '#E5E5E7' },
+          { borderTopColor: colors.border },
         ]}
       >
         <TouchableOpacity
           style={[
             styles.actionButton,
-            { backgroundColor: isDark ? '#2D2D3A' : '#F5F5F7' },
+            { backgroundColor: colors.surfaceHighlight },
           ]}
           onPress={() => onEdit(entry)}
           activeOpacity={0.7}
@@ -174,7 +173,7 @@ export const MealEntryCard: React.FC<MealEntryCardProps> = ({
           <Ionicons
             name="pencil-outline"
             size={16}
-            color={isDark ? '#fff' : '#666'}
+            color={colors.icon}
           />
           <ThemedText style={styles.actionButtonText}>Edit</ThemedText>
         </TouchableOpacity>

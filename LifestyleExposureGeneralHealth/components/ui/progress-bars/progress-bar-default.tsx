@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/context/theme-context';
 
 const getBarColor = (percent: number) => {
   if (percent >= 100) return '#EF4444'; // Over — red
@@ -8,14 +9,15 @@ const getBarColor = (percent: number) => {
 };
 
 export const ProgressBar = ({ percent }: { percent: number }) => {
+  const { isDark, colors } = useTheme();
   const clamped = Math.max(0, Math.min(100, percent));
   const fillColor = getBarColor(percent);
   return (
     <View style={styles.progressRow}>
-      <View style={styles.progressBar}>
+      <View style={[styles.progressBar, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
         <View style={[styles.progressFill, { width: `${clamped}%`, backgroundColor: fillColor }]} />
       </View>
-      <ThemedText type="defaultSemiBold" style={styles.percentText}>{Math.round(percent)}%</ThemedText>
+      <ThemedText type="defaultSemiBold" style={[styles.percentText, { color: colors.textMuted }]}>{Math.round(percent)}%</ThemedText>
     </View>
   );
 };
@@ -30,7 +32,6 @@ const styles = StyleSheet.create({
   progressBar: {
     flex: 1,
     height: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
     borderRadius: 6,
     overflow: 'hidden',
   },
@@ -42,6 +43,5 @@ const styles = StyleSheet.create({
     width: 44,
     textAlign: 'right',
     fontSize: 12,
-    color: '#6B6B8A',
   },
 })

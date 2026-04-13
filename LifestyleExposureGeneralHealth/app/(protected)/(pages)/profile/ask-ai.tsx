@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, TextInput, View, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform, TouchableOpacity } from 'react-native';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/context/theme-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
 
@@ -10,7 +10,7 @@ export default function AskAIScreen() {
     const [query, setQuery] = useState('');
     const [response, setResponse] = useState('');
     const [loading, setLoading] = useState(false);
-    const theme = useColorScheme() ?? 'light';
+    const { isDark, colors } = useTheme();
 
     const submitQuery = async () => {
         if (!query.trim()) return;
@@ -65,11 +65,11 @@ export default function AskAIScreen() {
 
                     {loading ? (
                         <View style={styles.responseContainer}>
-                            <ActivityIndicator size="large" color={theme === 'light' ? '#0a7ea4' : '#2f95dc'} />
+                            <ActivityIndicator size="large" color={colors.primary} />
                             <ThemedText style={styles.loadingText}>Analyzing research...</ThemedText>
                         </View>
                     ) : response ? (
-                        <ThemedView style={[styles.responseContainer, { backgroundColor: theme === 'light' ? '#f0f0f0' : '#2a2a2a' }]}>
+                        <ThemedView style={[styles.responseContainer, { backgroundColor: colors.inputBackground }]}>
                             <ThemedText style={styles.responseText}>{response}</ThemedText>
                         </ThemedView>
                     ) : (
@@ -78,17 +78,17 @@ export default function AskAIScreen() {
                 </ThemedView>
             </ScrollView>
 
-            <ThemedView style={[styles.inputContainer, { borderTopColor: theme === 'light' ? '#e0e0e0' : '#333' }]}>
+            <ThemedView style={[styles.inputContainer, { borderTopColor: colors.border }]}>
                 <TextInput
                     style={[
                         styles.textInput,
                         {
-                            backgroundColor: theme === 'light' ? '#f0f0f0' : '#2a2a2a',
-                            color: theme === 'light' ? '#11181C' : '#ECEDEE'
+                            backgroundColor: colors.inputBackground,
+                            color: colors.text
                         }
                     ]}
                     placeholder="Type your medical question here..."
-                    placeholderTextColor={theme === 'light' ? '#888' : '#aaa'}
+                    placeholderTextColor={colors.textMuted}
                     value={query}
                     onChangeText={setQuery}
                     multiline

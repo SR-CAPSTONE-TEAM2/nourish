@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
   ActivityIndicator,
 } from 'react-native';
 import { Stack } from 'expo-router';
@@ -16,6 +15,7 @@ import { MealJournalModal } from '@/app/(protected)/(modals)/meal-journal-modal'
 import { AVAILABLE_MEAL_TYPES, TemplateMeal } from '@/types/diets-meals';
 import { useUserDiet } from '@/hooks/useUserDiet';
 import { useRouter } from 'expo-router';
+import { useTheme } from '@/context/theme-context';
 
 // ─── Sub-Components ──────────────────────────────────────────────────────────
 
@@ -155,8 +155,7 @@ function MealSectionCard({
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function JournalScreen() {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
   const router = useRouter();
   const { activeDiet, isLoading } = useUserDiet();
 
@@ -263,7 +262,7 @@ export default function JournalScreen() {
 
         {/* Daily Summary */}
         {activeDiet && dailyTotals.calories > 0 && (
-          <View style={[styles.dailySummary, { backgroundColor: isDark ? '#1A1A2E' : '#FAFAFA' }]}>
+          <View style={[styles.dailySummary, { backgroundColor: colors.card }]}>
             <ThemedText style={styles.summaryTitle}>Daily Plan</ThemedText>
             <View style={styles.summaryMacros}>
               <View style={styles.summaryMacroItem}>
@@ -272,21 +271,21 @@ export default function JournalScreen() {
                 </ThemedText>
                 <ThemedText style={styles.summaryMacroLabel}>kcal</ThemedText>
               </View>
-              <View style={styles.summaryMacroDivider} />
+              <View style={[styles.summaryMacroDivider, { backgroundColor: isDark ? '#3D3D4D' : '#E5E5E7' }]} />
               <View style={styles.summaryMacroItem}>
                 <ThemedText style={[styles.summaryMacroValue, { color: '#34d399' }]}>
                   {dailyTotals.protein}g
                 </ThemedText>
                 <ThemedText style={styles.summaryMacroLabel}>protein</ThemedText>
               </View>
-              <View style={styles.summaryMacroDivider} />
+              <View style={[styles.summaryMacroDivider, { backgroundColor: isDark ? '#3D3D4D' : '#E5E5E7' }]} />
               <View style={styles.summaryMacroItem}>
                 <ThemedText style={[styles.summaryMacroValue, { color: '#a78bfa' }]}>
                   {dailyTotals.carbs}g
                 </ThemedText>
                 <ThemedText style={styles.summaryMacroLabel}>carbs</ThemedText>
               </View>
-              <View style={styles.summaryMacroDivider} />
+              <View style={[styles.summaryMacroDivider, { backgroundColor: isDark ? '#3D3D4D' : '#E5E5E7' }]} />
               <View style={styles.summaryMacroItem}>
                 <ThemedText style={[styles.summaryMacroValue, { color: '#60a5fa' }]}>
                   {dailyTotals.fat}g
@@ -327,6 +326,15 @@ export default function JournalScreen() {
 
           <View style={{ height: 40 }} />
         </ScrollView>
+        
+        {/* AI Diet Generator Button */}
+        <TouchableOpacity 
+          style={styles.aiFab} 
+          onPress={() => router.push('/(protected)/(pages)/journal/ai-generate' as any)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="sparkles" size={24} color="#FFF" />
+        </TouchableOpacity>
       </ThemedView>
 
       {/* Meal Journal Modal */}
@@ -425,7 +433,6 @@ const styles = StyleSheet.create({
   summaryMacroDivider: {
     width: 1,
     height: 24,
-    backgroundColor: '#3D3D4D',
     opacity: 0.3,
   },
 
@@ -519,5 +526,21 @@ const styles = StyleSheet.create({
   emptyMealsText: {
     fontSize: 13,
     opacity: 0.5,
+  },
+  aiFab: {
+    position: 'absolute',
+    bottom: 24,
+    right: 24,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#8B5CF6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
 });
