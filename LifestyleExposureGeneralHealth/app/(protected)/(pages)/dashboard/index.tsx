@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'expo-router';
@@ -23,9 +25,20 @@ import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/context/theme-context';
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 80;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+// ─── Dark purple palette ──────────────────────────────────────────────────────
+const DARK_BG       = '#0f0e17'   // main background
+const DARK_SURFACE  = '#1a1828'   // card / panel surface
+const DARK_SURF_HI  = '#211f32'   // elevated surface, chart bg
+const DARK_BORDER   = '#2a2740'   // subtle border
+const DARK_BORDER_HI = '#322f4a'  // stronger border
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +57,26 @@ interface ScheduleEntry {
     total_carbs: number | null;
     total_fat: number | null;
   } | null;
+}
+
+interface MealItem {
+  item_id: string;
+  ingredient_name: string | null;
+  quantity: number | null;
+  gram_weight: number | null;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+}
+
+interface MealWithItems extends Meal {
+  meal_id: string;
+  meal_name?: string;
+  meal_type: string;
+  total_protein?: number;
+  total_carbs?: number;
+  total_fat?: number;
 }
 
 // ─── Data helpers ─────────────────────────────────────────────────────────────
@@ -105,6 +138,37 @@ function timeToMinutes(time: string): number {
   return h * 60 + m;
 }
 
+function parseMealDate(dateStr: string): Date {
+  const s = dateStr.includes('T') ? dateStr : dateStr.replace(' ', 'T');
+  return new Date(s.replace(/Z$/, '').replace(/[+-]\d{2}:\d{2}$/, ''));
+}
+
+function groupMealsByDay(meals: MealWithItems[]): { dateKey: string; label: string; meals: MealWithItems[] }[] {
+  const map = new Map<string, MealWithItems[]>();
+  for (const m of meals) {
+    const dateStr = (m as any).logged_date ?? m.meal_date;
+    if (!dateStr) continue;
+    const d = parseMealDate(dateStr);
+    const key = d.toDateString();
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(m);
+  }
+  const today = new Date().toDateString();
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  return Array.from(map.entries())
+    .sort((a, b) => new Date(b[0]).getTime() - new Date(a[0]).getTime())
+    .map(([key, dayMeals]) => {
+      let label: string;
+      if (key === today) label = 'Today';
+      else if (key === yesterday) label = 'Yesterday';
+      else {
+        const d = new Date(key);
+        label = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+      }
+      return { dateKey: key, label, meals: dayMeals };
+    });
+}
+
 // ─── Meal type helpers ────────────────────────────────────────────────────────
 
 const _FALLBACK_COLORS = ['#fbbf24', '#34d399', '#60a5fa', '#f97316', '#a78bfa', '#fb7185', '#38bdf8', '#4ade80'];
@@ -158,34 +222,6 @@ function SectionHeader({ title, subtitle, C }: { title: string; subtitle?: strin
   );
 }
 
-// ─── Meal Row ─────────────────────────────────────────────────────────────────
-
-function MealRow({ meal, C }: { meal: Meal; C: Record<string, string> }) {
-  const type = (meal.meal_type ?? 'meal').toLowerCase();
-  const accent = getMealTypeColor(type);
-  return (
-    <View style={[styles.mealRow, { backgroundColor: C.surfaceHi, borderColor: C.borderHi }]}>
-      <View style={[styles.mealDot, { backgroundColor: accent }]} />
-      <View style={styles.mealInfo}>
-        <Text style={[styles.mealType, { color: C.textPrime }]}>{meal.meal_type ?? 'Meal'}</Text>
-        <Text style={[styles.mealDate, { color: C.textSub }]}>
-          {new Date((meal as any).logged_date ?? meal.meal_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-        </Text>
-      </View>
-      <View style={styles.mealRight}>
-        {meal.meal_rating != null && (
-          <Text style={styles.mealRating}>{'★'.repeat(meal.meal_rating)}{'☆'.repeat(5 - meal.meal_rating)}</Text>
-        )}
-        <View style={[styles.calorieBadge, { backgroundColor: accent + '18', borderColor: accent + '44' }]}>
-          <Text style={[styles.calorieBadgeText, { color: accent }]}>
-            {meal.total_calories ? `${meal.total_calories} kcal` : '—'}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
 // ─── Tab Button ───────────────────────────────────────────────────────────────
 
 function TabButton({ label, active, color, onPress, C }: {
@@ -224,7 +260,7 @@ function NextMealCard({ entry, C, isDark, onLog, isLogged }: {
   };
 
   return (
-    <View style={[nextStyles.card, { backgroundColor: isDark ? '#1A1A2E' : '#F9F5FF', borderColor: accent + '44' }]}>
+    <View style={[nextStyles.card, { backgroundColor: isDark ? DARK_SURF_HI : '#F9F5FF', borderColor: accent + '44' }]}>
       <View style={nextStyles.pill}>
         <View style={[nextStyles.pillDot, { backgroundColor: accent }]} />
         <Text style={[nextStyles.pillText, { color: accent }]}>Next Up</Text>
@@ -261,7 +297,6 @@ function NextMealCard({ entry, C, isDark, onLog, isLogged }: {
         </View>
       </View>
 
-      {/* Log button */}
       <TouchableOpacity
         onPress={handleLog}
         disabled={isLogged || logging}
@@ -354,6 +389,115 @@ function TodaySchedulePanel({ schedule, onGoToSchedule, onLogMeal, isMealLogged,
   );
 }
 
+// ─── Expandable Meal Card ─────────────────────────────────────────────────────
+
+function MealCard({ meal, C }: { meal: MealWithItems; C: Record<string, string> }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const [items, setItems] = React.useState<MealItem[] | null>(null);
+  const [loadingItems, setLoadingItems] = React.useState(false);
+
+  const type = (meal.meal_type ?? 'meal').toLowerCase();
+  const accent = getMealTypeColor(type);
+
+  const handleExpand = React.useCallback(async () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const next = !expanded;
+    setExpanded(next);
+    if (next && items === null) {
+      setLoadingItems(true);
+      const { data, error } = await supabase
+        .from('meal_items')
+        .select('*')
+        .eq('meal_id', meal.meal_id)
+        .order('calories', { ascending: false });
+      if (!error && data) setItems(data as MealItem[]);
+      setLoadingItems(false);
+    }
+  }, [expanded, items, meal.meal_id]);
+
+  return (
+    <View style={[mealCardStyles.wrap, { backgroundColor: C.surfaceHi, borderColor: C.borderHi }]}>
+      <TouchableOpacity onPress={handleExpand} activeOpacity={0.75} style={mealCardStyles.header}>
+        <View style={[mealCardStyles.accent, { backgroundColor: accent }]} />
+        <View style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 13, gap: 4 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={[mealCardStyles.type, { color: C.textPrime }]}>{meal.meal_type ?? 'Meal'}</Text>
+            {(meal as any).meal_rating != null && (
+              <Text style={{ fontSize: 10, color: '#fbbf24' }}>
+                {'★'.repeat(Math.round((meal as any).meal_rating))}{'☆'.repeat(5 - Math.round((meal as any).meal_rating))}
+              </Text>
+            )}
+          </View>
+          {(meal as any).meal_name ? (
+            <Text style={[mealCardStyles.mealName, { color: C.textMid }]} numberOfLines={1}>{(meal as any).meal_name}</Text>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+            {meal.total_calories != null && (
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#f97316' }}>{Math.round(meal.total_calories)} kcal</Text>
+            )}
+            {(meal as any).total_protein != null && (
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#34d399' }}>{Math.round((meal as any).total_protein)}g P</Text>
+            )}
+            {(meal as any).total_carbs != null && (
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#a78bfa' }}>{Math.round((meal as any).total_carbs)}g C</Text>
+            )}
+            {(meal as any).total_fat != null && (
+              <Text style={{ fontSize: 11, fontWeight: '600', color: '#60a5fa' }}>{Math.round((meal as any).total_fat)}g F</Text>
+            )}
+          </View>
+        </View>
+        <Text style={[mealCardStyles.chevron, { color: C.textSub }, expanded && mealCardStyles.chevronOpen]}>›</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={[mealCardStyles.body, { borderTopColor: C.border }]}>
+          {loadingItems ? (
+            <ActivityIndicator size="small" color={C.textSub} style={{ marginVertical: 10 }} />
+          ) : items && items.length > 0 ? (
+            items.map(item => (
+              <View key={item.item_id} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingVertical: 5 }}>
+                <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: C.borderHi, marginTop: 8, flexShrink: 0 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, color: C.textPrime, fontWeight: '500' }} numberOfLines={2}>
+                    {item.ingredient_name ?? 'Unknown'}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: C.textSub, marginTop: 1 }}>
+                    {[
+                      item.calories != null && `${Math.round(item.calories)} kcal`,
+                      item.protein != null && `${Math.round(item.protein)}g P`,
+                      item.carbs != null && `${Math.round(item.carbs)}g C`,
+                      item.fat != null && `${Math.round(item.fat)}g F`,
+                    ].filter(Boolean).join('  ·  ')}
+                  </Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={{ fontSize: 12, color: C.textSub, paddingVertical: 8 }}>No ingredients recorded.</Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ─── Day Group Header ─────────────────────────────────────────────────────────
+
+function DayHeader({ label, totalCal, C }: { label: string; totalCal: number; C: Record<string, string> }) {
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 4 }}>
+      <Text style={{ fontSize: 12, fontWeight: '700', color: C.textMid, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+        {label}
+      </Text>
+      {totalCal > 0 && (
+        <Text style={{ fontSize: 11, color: '#f97316', fontWeight: '600' }}>
+          {Math.round(totalCal)} kcal
+        </Text>
+      )}
+    </View>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -364,29 +508,30 @@ export default function Dashboard() {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [metrics, setMetrics] = useState<Metric[]>([]);
-  const [meals, setMeals] = useState<Meal[]>([]);
+  const [meals, setMeals] = useState<MealWithItems[]>([]);
   const [todaySchedule, setTodaySchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-  const userIdRef = React.useRef<string | null>(null); // always-current ref, avoids stale closures
+  const userIdRef = React.useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories');
   const [showAddMeal, setShowAddMeal] = useState(false);
 
+  // ── Color palette — dark purple in dark mode
   const C = {
-    bg: colors.background,
-    surface: colors.card,
-    surfaceHi: colors.surfaceHighlight,
-    border: colors.border,
-    borderHi: colors.borderHighlight,
+    bg:        isDark ? DARK_BG       : colors.background,
+    surface:   isDark ? DARK_SURFACE  : colors.card,
+    surfaceHi: isDark ? DARK_SURF_HI  : '#F5F5F5',
+    border:    isDark ? DARK_BORDER   : (colors.border ?? '#E5E5E5'),
+    borderHi:  isDark ? DARK_BORDER_HI : '#E0E0E0',
     textPrime: colors.text,
-    textSub: colors.textMuted,
-    textMid: colors.textSecondary,
-    orange: '#f97316',
-    blue: '#60a5fa',
-    green: '#34d399',
-    purple: '#8B5CF6',
-    rose: '#fb7185',
-    amber: '#fbbf24',
+    textSub:   colors.textMuted,
+    textMid:   colors.textSecondary,
+    orange:  '#f97316',
+    blue:    '#60a5fa',
+    green:   '#34d399',
+    purple:  '#8B5CF6',
+    rose:    '#fb7185',
+    amber:   '#fbbf24',
+    overlayColor: isDark ? 'rgba(8,7,20,0.75)' : 'rgba(0,0,0,0.4)',
   };
 
   // ─── Data fetchers ──────────────────────────────────────────────────────────
@@ -394,8 +539,6 @@ export default function Dashboard() {
   const refreshMeals = async (uid?: string) => {
     const id = uid ?? userIdRef.current;
     if (!id) return;
-    // Sort descending so newest meals are always within Supabase's 1000-row default limit.
-    // Filter to last 365 days to keep chart data meaningful without hitting the row cap.
     const oneYearAgo = new Date();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const cutoff = oneYearAgo.toISOString().split('T')[0];
@@ -403,8 +546,8 @@ export default function Dashboard() {
       .from('meal_logs')
       .select('*')
       .eq('user_id', id)
-      .gte('logged_date', cutoff)
-      .order('logged_date', { ascending: false });
+      .gte('meal_date', cutoff)
+      .order('meal_date', { ascending: false });
     if (!error && data) setMeals(data as any);
   };
 
@@ -430,9 +573,8 @@ export default function Dashboard() {
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
+      if (!user) { router.replace('/login' as any); return; }
 
-      setUserId(user.id);
       userIdRef.current = user.id;
 
       const oneYearAgo = new Date();
@@ -441,21 +583,19 @@ export default function Dashboard() {
 
       const [{ data: prof }, { data: mealData }, { data: metricData }] = await Promise.all([
         supabase.from('user_profiles').select('*').eq('user_id', user.id).single(),
-        supabase.from('meal_logs').select('*').eq('user_id', user.id).gte('logged_date', mealsCutoff).order('logged_date', { ascending: false }),
+        supabase.from('user_meals').select('*').eq('user_id', user.id).gte('meal_date', mealsCutoff).order('meal_date', { ascending: false }),
         supabase.from('user_metrics').select('*').eq('user_id', user.id).order('observation_date', { ascending: true }),
       ]);
 
       if (prof) setProfile(prof);
       if (metricData) setMetrics(metricData);
-      if (mealData) setMeals(mealData);
+      if (mealData) setMeals(mealData as any);
       await refreshTodaySchedule(user.id);
       setLoading(false);
     };
     load();
   }, []);
 
-  // Re-fetch both schedule and meals on every screen focus
-  // (covers back-nav, app reload, and any remount scenario)
   useFocusEffect(
     React.useCallback(() => {
       supabase.auth.getUser().then(({ data }) => {
@@ -474,14 +614,13 @@ export default function Dashboard() {
     const meal = entry.user_meals;
     const today = new Date().toISOString().split('T')[0];
 
-    // Optimistic update — UI responds instantly
     const optimisticId = `optimistic-${Date.now()}`;
     const optimisticMeal = {
       meal_id: optimisticId,
       id: optimisticId,
       user_id: uid,
       meal_type: entry.meal_type,
-      logged_date: today,
+      meal_date: today,
       total_calories: meal?.total_calories ?? null,
       total_protein: meal?.total_protein ?? null,
       total_carbs: meal?.total_carbs ?? null,
@@ -490,12 +629,12 @@ export default function Dashboard() {
     setMeals(prev => [...prev, optimisticMeal]);
 
     const { data: newMeal, error } = await supabase
-      .from('meal_logs')
+      .from('user_meals')
       .insert({
         user_id: uid,
         meal_type: entry.meal_type,
         meal_name: meal?.meal_name ?? entry.meal_type,
-        logged_date: today,
+        meal_date: today,
         total_calories: meal?.total_calories ?? null,
         total_protein: meal?.total_protein ?? null,
         total_carbs: meal?.total_carbs ?? null,
@@ -506,19 +645,17 @@ export default function Dashboard() {
       .single();
 
     if (error || !newMeal) {
-      // Roll back optimistic entry and surface the error
-      setMeals(prev => prev.filter(m => m.meal_id !== optimisticId));
+      setMeals(prev => prev.filter(m => (m as any).meal_id !== optimisticId));
       Alert.alert('Could not log meal', error?.message ?? 'Insert returned no data');
     } else {
-      // Swap the optimistic placeholder for the confirmed DB row
-      setMeals(prev => [...prev.filter(m => m.meal_id !== optimisticId), newMeal]);
+      setMeals(prev => [...prev.filter(m => (m as any).meal_id !== optimisticId), newMeal as any]);
     }
   };
 
   const isMealLoggedToday = (entry: ScheduleEntry): boolean => {
     const todayStr = new Date().toISOString().split('T')[0];
     return meals.some(m => {
-      const dateStr = (m as any).logged_date ?? m.meal_date ?? '';
+      const dateStr = (m as any).meal_date ?? '';
       return String(dateStr).startsWith(todayStr) &&
         String(m.meal_type ?? '').toLowerCase() === entry.meal_type.toLowerCase();
     });
@@ -526,7 +663,7 @@ export default function Dashboard() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    router.replace('/login');
+    router.replace('/login' as any);
   };
 
   // ─── Loading state ──────────────────────────────────────────────────────────
@@ -551,13 +688,14 @@ export default function Dashboard() {
     datasets: [{ data: data.map(d => (d as any)[key] ?? 0) }],
   });
 
+  // Chart background matches C.surfaceHi
   const baseChartConfig = {
     backgroundGradientFrom: C.surfaceHi,
     backgroundGradientTo: C.surfaceHi,
     decimalPlaces: 0,
     color: (opacity = 1) => isDark ? `rgba(242,242,242,${opacity})` : `rgba(30,30,30,${opacity})`,
-    labelColor: (opacity = 1) => isDark ? `rgba(90,90,90,${opacity})` : `rgba(100,100,100,${opacity})`,
-    propsForBackgroundLines: { stroke: isDark ? '#1f1f1f' : '#E5E5E7' },
+    labelColor: (opacity = 1) => isDark ? `rgba(110,100,160,${opacity})` : `rgba(100,100,100,${opacity})`,
+    propsForBackgroundLines: { stroke: isDark ? DARK_BORDER : '#E5E5E7' },
     propsForDots: { r: '3', strokeWidth: '0' },
   };
 
@@ -599,13 +737,13 @@ export default function Dashboard() {
     { key: 'macros' as const, label: 'Macros', color: C.purple },
   ];
 
-  const recentMeals = [...meals]
-    .sort((a, b) => {
-      const da = (a as any).logged_date ?? a.meal_date;
-      const db = (b as any).logged_date ?? b.meal_date;
-      return new Date(db).getTime() - new Date(da).getTime();
-    })
-    .slice(0, 5);
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const recentMeals = meals.filter(m => {
+    const dateStr = (m as any).meal_date;
+    if (!dateStr) return false;
+    return parseMealDate(dateStr) >= weekAgo;
+  });
+  const mealDayGroups = groupMealsByDay(recentMeals);
 
   const greeting = (() => {
     const h = new Date().getHours();
@@ -688,35 +826,37 @@ export default function Dashboard() {
             {activeTab === 'macros' && 'Protein · Carbs · Sugar — monthly averages'}
           </Text>
 
-          {activeTab === 'calories' && (
-            <LineChart data={toChartData(calorieData, 'calories')} width={CHART_WIDTH} height={200}
-              chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(249,115,22,${o})`, fillShadowGradientFrom: C.orange, fillShadowGradientTo: C.surfaceHi, fillShadowGradientFromOpacity: 0.28, fillShadowGradientToOpacity: 0 }}
-              bezier style={styles.chart} />
-          )}
-          {activeTab === 'weight' && (
-            <LineChart data={toChartData(weightData, 'value')} width={CHART_WIDTH} height={200}
-              chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(96,165,250,${o})`, fillShadowGradientFrom: C.blue, fillShadowGradientTo: C.surfaceHi, fillShadowGradientFromOpacity: 0.28, fillShadowGradientToOpacity: 0 }}
-              bezier style={styles.chart} />
-          )}
-          {activeTab === 'protein' && (
-            <BarChart data={toChartData(proteinData, 'value')} width={CHART_WIDTH} height={200}
-              yAxisLabel="" yAxisSuffix="g"
-              chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(52,211,153,${o})` }}
-              style={styles.chart} />
-          )}
-          {activeTab === 'macros' && (
-            <>
-              <LineChart data={macrosData} width={CHART_WIDTH} height={200} chartConfig={baseChartConfig} bezier withDots={false} style={styles.chart} />
-              <View style={styles.legendRow}>
-                {([[C.green, 'Protein'], [C.purple, 'Carbs'], [C.rose, 'Sugar']] as [string, string][]).map(([color, lbl]) => (
-                  <View key={lbl} style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: color }]} />
-                    <Text style={[styles.legendText, { color: C.textMid }]}>{lbl}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
+          <View style={[styles.chartWrapper, { backgroundColor: C.surfaceHi, borderRadius: 12 }]}>
+            {activeTab === 'calories' && (
+              <LineChart data={toChartData(calorieData, 'calories')} width={CHART_WIDTH} height={200}
+                chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(249,115,22,${o})`, fillShadowGradientFrom: C.orange, fillShadowGradientTo: C.surfaceHi, fillShadowGradientFromOpacity: 0.28, fillShadowGradientToOpacity: 0 }}
+                bezier style={styles.chart} />
+            )}
+            {activeTab === 'weight' && (
+              <LineChart data={toChartData(weightData, 'value')} width={CHART_WIDTH} height={200}
+                chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(96,165,250,${o})`, fillShadowGradientFrom: C.blue, fillShadowGradientTo: C.surfaceHi, fillShadowGradientFromOpacity: 0.28, fillShadowGradientToOpacity: 0 }}
+                bezier style={styles.chart} />
+            )}
+            {activeTab === 'protein' && (
+              <BarChart data={toChartData(proteinData, 'value')} width={CHART_WIDTH} height={200}
+                yAxisLabel="" yAxisSuffix="g"
+                chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(52,211,153,${o})` }}
+                style={styles.chart} />
+            )}
+            {activeTab === 'macros' && (
+              <>
+                <LineChart data={macrosData} width={CHART_WIDTH} height={200} chartConfig={baseChartConfig} bezier withDots={false} style={styles.chart} />
+                <View style={styles.legendRow}>
+                  {([[C.green, 'Protein'], [C.purple, 'Carbs'], [C.rose, 'Sugar']] as [string, string][]).map(([color, lbl]) => (
+                    <View key={lbl} style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: color }]} />
+                      <Text style={[styles.legendText, { color: C.textMid }]}>{lbl}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
         </View>
 
         {/* ── Active Diet Panel ──────────────────────────────────────────── */}
@@ -728,14 +868,14 @@ export default function Dashboard() {
                 {activeDiet?.diet_name ?? 'No diet selected'}
               </Text>
               <TouchableOpacity
-                onPress={() => router.push('/(protected)/(pages)/journal/diets')}
+                onPress={() => router.push('/(protected)/(pages)/journal/diets' as any)}
                 style={[dietStyles.headerBtn, { backgroundColor: C.surfaceHi, borderColor: C.borderHi }]}
               >
                 <Ionicons name="swap-horizontal" size={13} color={C.orange} />
                 <Text style={[dietStyles.headerBtnText, { color: C.orange }]}>Switch</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => router.push('/(protected)/(pages)/dashboard/meal-schedule')}
+                onPress={() => router.push('/(protected)/(pages)/dashboard/meal-schedule' as any)}
                 style={[dietStyles.headerBtn, { backgroundColor: C.purple + '18', borderColor: C.purple + '44' }]}
               >
                 <Ionicons name="calendar-outline" size={13} color={C.purple} />
@@ -748,7 +888,7 @@ export default function Dashboard() {
 
           {!activeDiet ? (
             <TouchableOpacity
-              onPress={() => router.push('/(protected)/(pages)/journal/diets')}
+              onPress={() => router.push('/(protected)/(pages)/journal/diets' as any)}
               style={{ paddingVertical: 20, alignItems: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, borderRadius: 12 }}
             >
               <Text style={{ fontSize: 13, color: C.textSub }}>Tap to select or create a diet plan</Text>
@@ -756,7 +896,7 @@ export default function Dashboard() {
           ) : (
             <TodaySchedulePanel
               schedule={todaySchedule}
-              onGoToSchedule={() => router.push('/(protected)/(pages)/dashboard/meal-schedule')}
+              onGoToSchedule={() => router.push('/(protected)/(pages)/dashboard/meal-schedule' as any)}
               onLogMeal={logScheduledMeal}
               isMealLogged={isMealLoggedToday}
               C={C}
@@ -765,19 +905,31 @@ export default function Dashboard() {
           )}
         </View>
 
-        {/* ── Recent Meals ───────────────────────────────────────────────── */}
+        {/* ── Logged Meals ──────────────────────────────────────────────── */}
         <View style={[styles.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
-          <SectionHeader title="Logged Meals" subtitle={`${recentMeals.length} of ${meals.length} total`} C={C} />
+          <SectionHeader title="Logged Meals" subtitle="last 7 days" C={C} />
           <View style={[styles.panelDivider, { backgroundColor: C.border }]} />
-          {recentMeals.length === 0 ? (
+
+          {mealDayGroups.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateIcon}>🍽️</Text>
               <Text style={[styles.emptyStateText, { color: C.textMid }]}>No meals logged yet.</Text>
               <Text style={[styles.emptyStateHint, { color: C.textSub }]}>Tap + Log Meal to get started.</Text>
             </View>
           ) : (
-            <View style={styles.mealList}>
-              {recentMeals.map(meal => <MealRow key={(meal as any).id ?? meal.meal_id} meal={meal} C={C} />)}
+            <View style={{ gap: 16 }}>
+              {mealDayGroups.map(group => (
+                <View key={group.dateKey} style={{ gap: 6 }}>
+                  <DayHeader
+                    label={group.label}
+                    totalCal={group.meals.reduce((s, m) => s + (m.total_calories ?? 0), 0)}
+                    C={C}
+                  />
+                  {group.meals.map(meal => (
+                    <MealCard key={(meal as any).meal_id ?? (meal as any).id} meal={meal} C={C} />
+                  ))}
+                </View>
+              ))}
             </View>
           )}
         </View>
@@ -835,21 +987,12 @@ const styles = StyleSheet.create({
   tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
   tabText: { fontSize: 13, fontWeight: '600' },
   chartSubtitle: { fontSize: 12, marginBottom: 4 },
+  chartWrapper: { overflow: 'hidden' },
   chart: { borderRadius: 12, marginLeft: -10 },
-  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
+  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 20, paddingBottom: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 12 },
-  mealList: { gap: 8 },
-  mealRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 13, borderWidth: 1 },
-  mealDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  mealInfo: { flex: 1, gap: 2 },
-  mealType: { fontSize: 14, fontWeight: '600', textTransform: 'capitalize' },
-  mealDate: { fontSize: 11 },
-  mealRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  mealRating: { fontSize: 11, color: '#fbbf24' },
-  calorieBadge: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
-  calorieBadgeText: { fontSize: 12, fontWeight: '700' },
   emptyState: { alignItems: 'center', paddingVertical: 28, gap: 6 },
   emptyStateIcon: { fontSize: 32 },
   emptyStateText: { fontSize: 15, fontWeight: '600' },
@@ -859,6 +1002,17 @@ const styles = StyleSheet.create({
 const dietStyles = StyleSheet.create({
   headerBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1 },
   headerBtnText: { fontSize: 11, fontWeight: '600' },
+});
+
+const mealCardStyles = StyleSheet.create({
+  wrap: { borderRadius: 14, overflow: 'hidden', borderWidth: 1 },
+  header: { flexDirection: 'row', alignItems: 'center' },
+  accent: { width: 3, alignSelf: 'stretch' },
+  type: { fontSize: 13, fontWeight: '700', textTransform: 'capitalize', flex: 1 },
+  mealName: { fontSize: 12 },
+  chevron: { fontSize: 22, paddingHorizontal: 14, paddingVertical: 14 },
+  chevronOpen: { transform: [{ rotate: '90deg' }] },
+  body: { paddingHorizontal: 14, paddingBottom: 12, paddingTop: 8, borderTopWidth: 1 },
 });
 
 const nextStyles = StyleSheet.create({
