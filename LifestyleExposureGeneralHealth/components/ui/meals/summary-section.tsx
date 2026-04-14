@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { ProgressBar } from '@/components/ui/progress-bars/progress-bar-default';
 import { RECOMMENDED } from '@/constants/recommended';
+import { useTheme } from '@/context/theme-context';
 
 interface SummarySectionProps {
   totals: {
@@ -20,6 +21,8 @@ interface SummarySectionProps {
 }
 
 export const SummarySection = ({ totals, percents }: SummarySectionProps) => {
+  const { isDark, colors } = useTheme();
+
   const calPercent = percents.calories;
   const calOnTrack = calPercent >= 80 && calPercent <= 115;
 
@@ -32,32 +35,32 @@ export const SummarySection = ({ totals, percents }: SummarySectionProps) => {
   return (
     <View style={styles.summaryContainer}>
       {/* Featured calories card */}
-      <View style={styles.caloriesCard}>
+      <View style={[styles.caloriesCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.caloriesTopRow}>
-          <ThemedText style={styles.caloriesLabel}>CALORIES</ThemedText>
-          <View style={[styles.percentBadge, { backgroundColor: calOnTrack ? 'rgba(139,92,246,0.2)' : 'rgba(255,255,255,0.07)' }]}>
-            <ThemedText style={[styles.percentBadgeText, { color: calOnTrack ? '#8B5CF6' : '#E8E8F0' }]}>
+          <ThemedText style={[styles.caloriesLabel, { color: colors.textMuted }]}>CALORIES</ThemedText>
+          <View style={[styles.percentBadge, { backgroundColor: calOnTrack ? 'rgba(139,92,246,0.2)' : isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)' }]}>
+            <ThemedText style={[styles.percentBadgeText, { color: calOnTrack ? '#8B5CF6' : colors.text }]}>
               {calPercent}%
             </ThemedText>
           </View>
         </View>
         <View style={styles.caloriesValueRow}>
-          <ThemedText style={styles.caloriesValue}>{totals.calories}</ThemedText>
-          <ThemedText style={styles.caloriesUnit}> kcal</ThemedText>
+          <ThemedText style={[styles.caloriesValue, { color: colors.text }]}>{totals.calories}</ThemedText>
+          <ThemedText style={[styles.caloriesUnit, { color: colors.textMuted }]}> kcal</ThemedText>
         </View>
-        <ThemedText style={styles.caloriesTarget}>Daily goal: {RECOMMENDED.calories} kcal</ThemedText>
+        <ThemedText style={[styles.caloriesTarget, { color: colors.textMuted }]}>Daily goal: {RECOMMENDED.calories} kcal</ThemedText>
         <ProgressBar percent={calPercent} />
       </View>
 
       {/* Macro row */}
       <View style={styles.macroRow}>
         {macros.map(({ label, total, rec, percent, unit, color }) => (
-          <View key={label} style={[styles.macroCard, { borderTopColor: color }]}>
+          <View key={label} style={[styles.macroCard, { backgroundColor: colors.card, borderColor: colors.border, borderTopColor: color }]}>
             <ThemedText style={[styles.macroLabel, { color }]}>{label}</ThemedText>
-            <ThemedText style={styles.macroValue}>
-              {total}<ThemedText style={styles.macroUnit}>{unit}</ThemedText>
+            <ThemedText style={[styles.macroValue, { color: colors.text }]}>
+              {total}<ThemedText style={[styles.macroUnit, { color: colors.textMuted }]}>{unit}</ThemedText>
             </ThemedText>
-            <ThemedText style={styles.macroTarget}>/ {rec}{unit}</ThemedText>
+            <ThemedText style={[styles.macroTarget, { color: colors.textMuted }]}>/ {rec}{unit}</ThemedText>
             <ProgressBar percent={percent} />
           </View>
         ))}
@@ -72,11 +75,9 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   caloriesCard: {
-    backgroundColor: '#1C1C2E',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
   },
   caloriesTopRow: {
     flexDirection: 'row',
@@ -87,7 +88,6 @@ const styles = StyleSheet.create({
   caloriesLabel: {
     fontSize: 11,
     letterSpacing: 1.4,
-    color: '#6B6B8A',
     fontFamily: 'Ubuntu_400Regular',
   },
   percentBadge: {
@@ -108,18 +108,15 @@ const styles = StyleSheet.create({
     fontSize: 48,
     fontFamily: 'Ubuntu_700Bold',
     fontWeight: 'bold',
-    color: '#E8E8F0',
     lineHeight: 56,
   },
   caloriesUnit: {
     fontSize: 18,
-    color: '#6B6B8A',
     marginBottom: 8,
     fontFamily: 'Ubuntu_400Regular',
   },
   caloriesTarget: {
     fontSize: 13,
-    color: '#6B6B8A',
     fontFamily: 'Ubuntu_400Regular',
     marginBottom: 10,
   },
@@ -129,11 +126,9 @@ const styles = StyleSheet.create({
   },
   macroCard: {
     flex: 1,
-    backgroundColor: '#1C1C2E',
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
     borderTopWidth: 2,
   },
   macroLabel: {
@@ -147,17 +142,14 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontFamily: 'Ubuntu_700Bold',
     fontWeight: 'bold',
-    color: '#E8E8F0',
     lineHeight: 28,
   },
   macroUnit: {
     fontSize: 13,
-    color: '#6B6B8A',
     fontWeight: 'normal',
   },
   macroTarget: {
     fontSize: 11,
-    color: '#6B6B8A',
     fontFamily: 'Ubuntu_400Regular',
     marginBottom: 8,
     marginTop: 2,

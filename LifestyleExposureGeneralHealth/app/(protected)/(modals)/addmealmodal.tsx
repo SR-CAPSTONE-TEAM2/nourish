@@ -61,6 +61,22 @@ interface PendingFood {
   multiplier: string
 }
 
+export interface AddedMealItem {
+  fdc_id: number
+  ingredient_name: string
+  quantity: number
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+export interface AddMealSuccessPayload {
+  mealType: MealType
+  mealId: string
+  items: AddedMealItem[]
+}
+
 interface Props {
   visible: boolean
   onClose: () => void
@@ -521,7 +537,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
         .insert({
           user_id: user.id,
           meal_type: mealType,
-          meal_date: new Date().toISOString(),
+          meal_date: new Date().toISOString().split('T')[0],
           total_calories: totalCalories,
           total_protein: totalProtein,
           total_carbs: totalCarbs,

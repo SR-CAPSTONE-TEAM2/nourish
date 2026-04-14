@@ -9,7 +9,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  useColorScheme,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MealType, MoodRating, PhysicalFeeling, EmotionalFeeling, MealEntry, TemplateMeal } from '@/types/diets-meals';
@@ -21,6 +20,7 @@ import {
 } from './mood-selector';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useTheme } from '@/context/theme-context';
 
 interface MealEntryFormProps {
   onSubmit: (entry: Omit<MealEntry, 'id' | 'createdAt'>) => Promise<void>;
@@ -37,8 +37,7 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
   lockedMealType,
   prefillMeal, // ← add this
 }) => {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
 
   // Build prefilled food description from template meal
   const getPrefillDescription = (): string => {
@@ -131,8 +130,8 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
   const inputStyle = [
     styles.textInput,
     {
-      backgroundColor: isDark ? '#1C1C2E' : '#F5F5F7',
-      color: isDark ? '#fff' : '#333',
+      backgroundColor: colors.card,
+      color: colors.text,
     },
   ];
 
@@ -142,9 +141,9 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: isDark ? '#2D2D3A' : '#E5E5E7' }]}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity onPress={onCancel} style={styles.closeButton}>
-          <Ionicons name="close" size={28} color={isDark ? '#fff' : '#333'} />
+          <Ionicons name="close" size={28} color={colors.text} />
         </TouchableOpacity>
         <ThemedText type="subtitle" style={styles.headerTitle}>
           {initialEntry ? 'Edit Entry' : prefillMeal ? 'Log Planned Meal' : 'New Entry'}
@@ -168,7 +167,7 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
       >
         {/* Prefill info banner */}
         {prefillMeal && (
-          <View style={[styles.prefillBanner, { backgroundColor: isDark ? '#2D2D3D' : '#F0EBF8' }]}>
+          <View style={[styles.prefillBanner, { backgroundColor: colors.surfaceHighlight }]}>
             <Ionicons name="restaurant-outline" size={16} color="#8B5CF6" />
             <ThemedText style={styles.prefillBannerText}>
               Logging: {prefillMeal.name} ({prefillMeal.totalCalories} kcal)
@@ -188,7 +187,7 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
           <TextInput
             style={[inputStyle, styles.multilineInput]}
             placeholder="Describe your meal..."
-            placeholderTextColor={isDark ? '#666' : '#999'}
+            placeholderTextColor={colors.textMuted}
             value={foodDescription}
             onChangeText={setFoodDescription}
             multiline
@@ -216,7 +215,7 @@ export const MealEntryForm: React.FC<MealEntryFormProps> = ({
           <TextInput
             style={[inputStyle, styles.notesInput]}
             placeholder="Any other thoughts about this meal..."
-            placeholderTextColor={isDark ? '#666' : '#999'}
+            placeholderTextColor={colors.textMuted}
             value={notes}
             onChangeText={setNotes}
             multiline

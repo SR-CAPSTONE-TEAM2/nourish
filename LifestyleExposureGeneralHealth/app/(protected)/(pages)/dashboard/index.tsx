@@ -543,7 +543,7 @@ export default function Dashboard() {
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     const cutoff = oneYearAgo.toISOString().split('T')[0];
     const { data, error } = await supabase
-      .from('user_meals')
+      .from('meal_logs')
       .select('*')
       .eq('user_id', id)
       .gte('meal_date', cutoff)

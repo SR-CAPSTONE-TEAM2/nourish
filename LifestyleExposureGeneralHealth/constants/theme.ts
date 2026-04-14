@@ -12,11 +12,16 @@ const accentMuted = '#6D4EC2';     // Deeper purple for light mode
 export const Colors = {
   light: {
     text: '#11181C',
-    background: '#F8F8FC',
+    background: '#F5F5F5',
+    surface: '#FFFFFF',
+    surfaceElevated: '#F0EBF8',
     tint: accentMuted,
     icon: '#687076',
     tabIconDefault: '#687076',
     tabIconSelected: accentMuted,
+    border: '#E5E5E7',
+    textMuted: '#999999',
+    accent: accentMuted,
   },
   dark: {
     text: '#E8E8F0',

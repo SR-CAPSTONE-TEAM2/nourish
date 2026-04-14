@@ -13,7 +13,7 @@ export default function SettingsScreen() {
 
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}>
+      headerBackgroundColor={{ light: '#F5F5F5', dark: '#1C1C2E' }}>
 
       <ThemedText type="subtitle">
         Alerts
