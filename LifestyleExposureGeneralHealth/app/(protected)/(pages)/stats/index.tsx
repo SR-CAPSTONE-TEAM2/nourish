@@ -14,17 +14,16 @@ import Svg, {
 } from 'react-native-svg'
 import { supabase } from '@/lib/supabase'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useTheme } from '@/context/theme-context'
+import { Ionicons } from '@expo/vector-icons'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const CHART_W = SCREEN_WIDTH - 76
 
 const FONT = Platform.OS === 'ios' ? 'System' : 'sans-serif'
 
-// ─── Palette ──────────────────────────────────────────────────────────────────
-const C = {
-  bg: '#0d0d0d', surface: '#141414', surfaceHi: '#1a1a1a',
-  border: '#222', borderHi: '#2e2e2e',
-  textPrime: '#f2f2f2', textSub: '#5a5a5a', textMid: '#888',
+// ─── Accent palette (always the same regardless of mode) ─────────────────────
+const ACCENT = {
   orange: '#f97316', blue: '#60a5fa', green: '#34d399',
   purple: '#a78bfa', rose: '#fb7185', amber: '#fbbf24', teal: '#2dd4bf',
 }
@@ -41,11 +40,7 @@ function lastNMonths(n: number): { label: string; year: number; month: number }[
   const now = new Date()
   for (let i = 0; i < n; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-    result.push({
-      label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-      year: d.getFullYear(),
-      month: d.getMonth(),
-    })
+    result.push({ label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }), year: d.getFullYear(), month: d.getMonth() })
   }
   return result.reverse()
 }
@@ -57,18 +52,13 @@ function lastNWeeks(n: number): { label: string; weekStart: Date; weekEnd: Date 
   const startOfThisWeek = new Date(now)
   startOfThisWeek.setDate(now.getDate() - ((dow + 6) % 7))
   startOfThisWeek.setHours(0, 0, 0, 0)
-
   for (let i = 0; i < n; i++) {
     const ws = new Date(startOfThisWeek)
     ws.setDate(startOfThisWeek.getDate() - i * 7)
     const we = new Date(ws)
     we.setDate(ws.getDate() + 6)
     we.setHours(23, 59, 59, 999)
-    result.push({
-      label: ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      weekStart: new Date(ws),
-      weekEnd: new Date(we),
-    })
+    result.push({ label: ws.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), weekStart: new Date(ws), weekEnd: new Date(we) })
   }
   return result.reverse()
 }
@@ -76,37 +66,23 @@ function lastNWeeks(n: number): { label: string; weekStart: Date; weekEnd: Date 
 // ─── Aggregation ──────────────────────────────────────────────────────────────
 interface AnyRow { [key: string]: any }
 
-function sumByMonth(
-  rows: AnyRow[],
-  dateField: string,
-  valueField: string,
-  months: { year: number; month: number }[]
-): number[] {
+function sumByMonth(rows: AnyRow[], dateField: string, valueField: string, months: { year: number; month: number }[]): number[] {
   return months.map(({ year, month }) =>
-    rows
-      .filter(r => {
-        if (!r[dateField]) return false
-        const d = parseLocal(r[dateField])
-        return d.getFullYear() === year && d.getMonth() === month
-      })
-      .reduce((sum, r) => sum + (Number(r[valueField]) || 0), 0)
+    rows.filter(r => {
+      if (!r[dateField]) return false
+      const d = parseLocal(r[dateField])
+      return d.getFullYear() === year && d.getMonth() === month
+    }).reduce((sum, r) => sum + (Number(r[valueField]) || 0), 0)
   )
 }
 
-function sumByWeek(
-  rows: AnyRow[],
-  dateField: string,
-  valueField: string,
-  weeks: { weekStart: Date; weekEnd: Date }[]
-): number[] {
+function sumByWeek(rows: AnyRow[], dateField: string, valueField: string, weeks: { weekStart: Date; weekEnd: Date }[]): number[] {
   return weeks.map(({ weekStart, weekEnd }) =>
-    rows
-      .filter(r => {
-        if (!r[dateField]) return false
-        const d = parseLocal(r[dateField])
-        return d >= weekStart && d <= weekEnd
-      })
-      .reduce((sum, r) => sum + (Number(r[valueField]) || 0), 0)
+    rows.filter(r => {
+      if (!r[dateField]) return false
+      const d = parseLocal(r[dateField])
+      return d >= weekStart && d <= weekEnd
+    }).reduce((sum, r) => sum + (Number(r[valueField]) || 0), 0)
   )
 }
 
@@ -126,16 +102,15 @@ function buildPath(pts: { x: number; y: number }[]): string {
   return d
 }
 
-function AreaChart({
-  data, labels, color, gradId, height = 150, unit = '',
-}: {
+function AreaChart({ data, labels, color, gradId, height = 150, unit = '', gridColor, textColor }: {
   data: number[]; labels: string[]; color: string
   gradId: string; height?: number; unit?: string
+  gridColor: string; textColor: string
 }) {
   if (data.every(v => v === 0)) {
     return (
       <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: FONT, fontSize: 12, color: C.textSub }}>No data for this period</Text>
+        <Text style={{ fontFamily: FONT, fontSize: 12, color: textColor }}>No data for this period</Text>
       </View>
     )
   }
@@ -147,11 +122,7 @@ function AreaChart({
   const step = cW / Math.max(data.length - 1, 1)
   const max = Math.max(...data, 1)
 
-  const pts = data.map((v, i) => ({
-    x: pL + i * step,
-    y: pT + cH - (v / max) * cH,
-  }))
-
+  const pts = data.map((v, i) => ({ x: pL + i * step, y: pT + cH - (v / max) * cH }))
   const linePath = buildPath(pts)
   const areaPath = linePath
     + ` L ${pts[pts.length - 1].x.toFixed(1)} ${(pT + cH).toFixed(1)}`
@@ -168,11 +139,7 @@ function AreaChart({
         </LinearGradient>
       </Defs>
       {[0, 0.25, 0.5, 0.75, 1].map(f => (
-        <Line key={f}
-          x1={pL} y1={pT + cH - f * cH}
-          x2={w - pR} y2={pT + cH - f * cH}
-          stroke="#1c1c1c" strokeWidth="1"
-        />
+        <Line key={f} x1={pL} y1={pT + cH - f * cH} x2={w - pR} y2={pT + cH - f * cH} stroke={gridColor} strokeWidth="1" />
       ))}
       <Path d={areaPath} fill={`url(#${gradId})`} />
       <Path d={linePath} stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
@@ -182,13 +149,12 @@ function AreaChart({
       {labels.map((lbl, i) => {
         if (skipLabel && i % 2 !== 0) return null
         return (
-          <SvgText key={lbl} x={pts[i]?.x ?? 0} y={h - 6}
-            fontSize="9" fontFamily={FONT} fill={C.textSub} textAnchor="middle">
+          <SvgText key={lbl} x={pts[i]?.x ?? 0} y={h - 6} fontSize="9" fontFamily={FONT} fill={textColor} textAnchor="middle">
             {lbl}
           </SvgText>
         )
       })}
-      <SvgText x={pL + 2} y={pT - 5} fontSize="9" fontFamily={FONT} fill={C.textSub}>
+      <SvgText x={pL + 2} y={pT - 5} fontSize="9" fontFamily={FONT} fill={textColor}>
         {Math.round(max)}{unit}
       </SvgText>
     </Svg>
@@ -198,18 +164,18 @@ function AreaChart({
 // ─── Chart: stacked bars ──────────────────────────────────────────────────────
 interface StackedCol { label: string; values: number[] }
 
-function StackedBars({ data, colors, height = 150 }: {
+function StackedBars({ data, colors, height = 150, gridColor, textColor }: {
   data: StackedCol[]; colors: string[]; height?: number
+  gridColor: string; textColor: string
 }) {
   const hasData = data.some(d => d.values.some(v => v > 0))
   if (!hasData) {
     return (
       <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: FONT, fontSize: 12, color: C.textSub }}>No data for this period</Text>
+        <Text style={{ fontFamily: FONT, fontSize: 12, color: textColor }}>No data for this period</Text>
       </View>
     )
   }
-
   const pT = 14, pB = 26, pL = 6, pR = 6
   const w = CHART_W, h = height
   const cH = h - pT - pB
@@ -222,11 +188,7 @@ function StackedBars({ data, colors, height = 150 }: {
   return (
     <Svg width={w} height={h}>
       {[0, 0.5, 1].map(f => (
-        <Line key={f}
-          x1={pL} y1={pT + cH - f * cH}
-          x2={w - pR} y2={pT + cH - f * cH}
-          stroke="#1c1c1c" strokeWidth="1"
-        />
+        <Line key={f} x1={pL} y1={pT + cH - f * cH} x2={w - pR} y2={pT + cH - f * cH} stroke={gridColor} strokeWidth="1" />
       ))}
       {data.map((col, i) => {
         const cx = pL + gap * i + gap / 2
@@ -239,9 +201,7 @@ function StackedBars({ data, colors, height = 150 }: {
               yBase -= bH
               return <Rect key={vi} x={cx - barW / 2} y={yBase} width={barW} height={bH} fill={colors[vi % colors.length]} rx="2" />
             })}
-            <SvgText x={cx} y={h - 8} fontSize="9" fontFamily={FONT} fill={C.textSub} textAnchor="middle">
-              {col.label}
-            </SvgText>
+            <SvgText x={cx} y={h - 8} fontSize="9" fontFamily={FONT} fill={textColor} textAnchor="middle">{col.label}</SvgText>
           </G>
         )
       })}
@@ -250,11 +210,9 @@ function StackedBars({ data, colors, height = 150 }: {
 }
 
 // ─── Chart: semi-circle gauge ─────────────────────────────────────────────────
-// FIX: clamp fy to never exceed cy (the arc baseline). Without this, near-zero
-// pct values produce a tiny positive sin() result that pushes fy below the
-// baseline, reversing the arc sweep direction.
-function SemiGauge({ value, max, label, sublabel, color, size = 110 }: {
+function SemiGauge({ value, max, label, sublabel, color, size = 110, surfaceColor, textMuted, borderColor }: {
   value: number; max: number; label: string; sublabel?: string; color: string; size?: number
+  surfaceColor: string; textMuted: string; borderColor: string
 }) {
   const r = size * 0.36
   const cx = size / 2, cy = size * 0.60
@@ -263,22 +221,20 @@ function SemiGauge({ value, max, label, sublabel, color, size = 110 }: {
   const startX = cx - r, startY = cy, endX = cx + r
   const fillAngle = Math.PI - pct * Math.PI
   const fx = cx + r * Math.cos(fillAngle)
-  // FIX: clamp fy so arc never dips below baseline
   const fy = Math.min(cy, cy + r * Math.sin(fillAngle))
   const largeArc = pct > 0.5 ? 1 : 0
   const trackPath = `M ${startX.toFixed(1)} ${startY.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${endX.toFixed(1)} ${startY.toFixed(1)}`
-  // Raise threshold to 0.01 to avoid visually broken near-zero arcs
   const fillPath = pct > 0.01 ? `M ${startX.toFixed(1)} ${startY.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 ${largeArc} 1 ${fx.toFixed(1)} ${fy.toFixed(1)}` : ''
   const displayVal = value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value))
   return (
     <View style={{ alignItems: 'center', flex: 1, minWidth: 80 }}>
       <Svg width={size} height={size * 0.68}>
-        <Path d={trackPath} stroke={C.border} strokeWidth={sw} fill="none" strokeLinecap="round" />
+        <Path d={trackPath} stroke={borderColor} strokeWidth={sw} fill="none" strokeLinecap="round" />
         {fillPath ? <Path d={fillPath} stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round" /> : null}
         <SvgText x={cx} y={cy - 3} fontSize="17" fontWeight="700" fontFamily={FONT} fill={color} textAnchor="middle">{displayVal}</SvgText>
-        {sublabel && <SvgText x={cx} y={cy + 11} fontSize="9" fontFamily={FONT} fill={C.textSub} textAnchor="middle">{sublabel}</SvgText>}
+        {sublabel && <SvgText x={cx} y={cy + 11} fontSize="9" fontFamily={FONT} fill={textMuted} textAnchor="middle">{sublabel}</SvgText>}
       </Svg>
-      <Text style={{ fontFamily: FONT, fontSize: 11, color: C.textMid, textAlign: 'center', marginTop: -4 }}>{label}</Text>
+      <Text style={{ fontFamily: FONT, fontSize: 11, color: textMuted, textAlign: 'center', marginTop: -4 }}>{label}</Text>
     </View>
   )
 }
@@ -286,12 +242,15 @@ function SemiGauge({ value, max, label, sublabel, color, size = 110 }: {
 // ─── Chart: donut ─────────────────────────────────────────────────────────────
 interface PieSlice { value: number; color: string; label: string; pct: number }
 
-function DonutChart({ slices, size = 140 }: { slices: PieSlice[]; size?: number }) {
+function DonutChart({ slices, size = 140, surfaceColor, textPrime, textMuted }: {
+  slices: PieSlice[]; size?: number
+  surfaceColor: string; textPrime: string; textMuted: string
+}) {
   const cx = size / 2, cy = size / 2, r = size * 0.4
   const total = slices.reduce((s, sl) => s + sl.value, 0)
   if (total === 0) return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Text style={{ fontFamily: FONT, color: C.textSub, fontSize: 12 }}>No data</Text>
+      <Text style={{ fontFamily: FONT, color: textMuted, fontSize: 12 }}>No data</Text>
     </View>
   )
   let angle = -Math.PI / 2
@@ -306,89 +265,101 @@ function DonutChart({ slices, size = 140 }: { slices: PieSlice[]; size?: number 
   const top = slices.reduce((a, b) => a.value > b.value ? a : b, slices[0])
   return (
     <Svg width={size} height={size}>
-      {paths.map((p, i) => <Path key={i} d={p.path} fill={p.color} stroke={C.surface} strokeWidth="2" />)}
-      <Circle cx={cx} cy={cy} r={r * 0.52} fill={C.surface} />
-      <SvgText x={cx} y={cy - 5} fontSize="13" fontWeight="700" fontFamily={FONT} fill={C.textPrime} textAnchor="middle">{top.label}</SvgText>
-      <SvgText x={cx} y={cy + 11} fontSize="10" fontFamily={FONT} fill={C.textSub} textAnchor="middle">{top.pct}%</SvgText>
+      {paths.map((p, i) => <Path key={i} d={p.path} fill={p.color} stroke={surfaceColor} strokeWidth="2" />)}
+      <Circle cx={cx} cy={cy} r={r * 0.52} fill={surfaceColor} />
+      <SvgText x={cx} y={cy - 5} fontSize="13" fontWeight="700" fontFamily={FONT} fill={textPrime} textAnchor="middle">{top.label}</SvgText>
+      <SvgText x={cx} y={cy + 11} fontSize="10" fontFamily={FONT} fill={textMuted} textAnchor="middle">{top.pct}%</SvgText>
     </Svg>
   )
 }
 
 // ─── Legend ───────────────────────────────────────────────────────────────────
-function Legend({ items }: { items: { color: string; label: string }[] }) {
+function Legend({ items, textColor }: { items: { color: string; label: string }[]; textColor: string }) {
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
       {items.map(item => (
         <View key={item.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: item.color }} />
-          <Text style={{ fontFamily: FONT, fontSize: 11, color: C.textMid }}>{item.label}</Text>
+          <Text style={{ fontFamily: FONT, fontSize: 11, color: textColor }}>{item.label}</Text>
         </View>
       ))}
     </View>
   )
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, value, unit, color }: { label: string; value: string | number; unit: string; color: string }) {
+// ─── Stat Card ────────────────────────────────────────────────────────────────
+function StatCard({ label, value, unit, color, C }: {
+  label: string; value: string | number; unit: string; color: string
+  C: { surfaceHi: string; textSub: string; border: string }
+}) {
   return (
-    <View style={[sc.card, { borderTopColor: color }]}>
-      <Text style={[sc.label, { fontFamily: FONT }]}>{label}</Text>
+    <View style={[sc.card, { borderTopColor: color, backgroundColor: C.surfaceHi, borderColor: C.border }]}>
+      <Text style={[sc.label, { fontFamily: FONT, color: C.textSub }]}>{label}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 3 }}>
         <Text style={[sc.value, { color, fontFamily: FONT }]}>{value}</Text>
-        <Text style={[sc.unit, { fontFamily: FONT }]}>{unit}</Text>
+        <Text style={[sc.unit, { fontFamily: FONT, color: C.textSub }]}>{unit}</Text>
       </View>
     </View>
   )
 }
 const sc = StyleSheet.create({
-  card: { flex: 1, minWidth: 90, backgroundColor: C.surfaceHi, borderTopWidth: 2, borderRadius: 14, padding: 14, gap: 4 },
-  label: { fontSize: 10, color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.7 },
+  card: { flex: 1, minWidth: 90, borderTopWidth: 2, borderWidth: 1, borderRadius: 14, padding: 14, gap: 4 },
+  label: { fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.7 },
   value: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
-  unit: { fontSize: 11, color: C.textSub, marginBottom: 2 },
+  unit: { fontSize: 11, marginBottom: 2 },
 })
 
-// ─── Totals row ───────────────────────────────────────────────────────────────
-function TotalsRow({ items }: { items: { label: string; value: number; unit: string; color: string }[] }) {
+// ─── Totals Row ───────────────────────────────────────────────────────────────
+function TotalsRow({ items, C }: {
+  items: { label: string; value: number; unit: string; color: string }[]
+  C: { surfaceHi: string; border: string; textSub: string; textMid: string }
+}) {
   return (
     <View style={{ flexDirection: 'row', gap: 8 }}>
       {items.map(item => (
-        <View key={item.label} style={tr.cell}>
+        <View key={item.label} style={[tr.cell, { backgroundColor: C.surfaceHi, borderColor: C.border }]}>
           <Text style={[tr.val, { color: item.color, fontFamily: FONT }]}>
             {item.value >= 1000 ? `${(item.value / 1000).toFixed(1)}k` : Math.round(item.value)}
           </Text>
-          <Text style={[tr.unit, { fontFamily: FONT }]}>{item.unit}</Text>
-          <Text style={[tr.lbl, { fontFamily: FONT }]}>{item.label}</Text>
+          <Text style={[tr.unit, { fontFamily: FONT, color: C.textSub }]}>{item.unit}</Text>
+          <Text style={[tr.lbl, { fontFamily: FONT, color: C.textMid }]}>{item.label}</Text>
         </View>
       ))}
     </View>
   )
 }
 const tr = StyleSheet.create({
-  cell: { flex: 1, backgroundColor: C.surfaceHi, borderRadius: 12, padding: 12, alignItems: 'center', gap: 2, borderWidth: 1, borderColor: C.border },
+  cell: { flex: 1, borderRadius: 12, padding: 12, alignItems: 'center', gap: 2, borderWidth: 1 },
   val: { fontSize: 18, fontWeight: '700' },
-  unit: { fontSize: 9, color: C.textSub, textTransform: 'uppercase' },
-  lbl: { fontSize: 10, color: C.textMid, textAlign: 'center' },
+  unit: { fontSize: 9, textTransform: 'uppercase' },
+  lbl: { fontSize: 10, textAlign: 'center' },
 })
 
-// ─── Tab button ───────────────────────────────────────────────────────────────
-function TabBtn({ label, active, color, onPress }: { label: string; active: boolean; color: string; onPress: () => void }) {
+// ─── Tab Button ───────────────────────────────────────────────────────────────
+function TabBtn({ label, active, color, onPress, C }: {
+  label: string; active: boolean; color: string; onPress: () => void
+  C: { surfaceHi: string; textSub: string }
+}) {
   return (
     <TouchableOpacity
       onPress={onPress}
-      style={[tb.btn, active && { backgroundColor: color + '18', borderColor: color + '55' }]}
+      style={[tb.btn, { backgroundColor: C.surfaceHi }, active && { backgroundColor: color + '18', borderColor: color + '55' }]}
       activeOpacity={0.7}
     >
-      <Text style={[tb.text, { fontFamily: FONT }, active && { color }]}>{label}</Text>
+      <Text style={[tb.text, { fontFamily: FONT, color: C.textSub }, active && { color }]}>{label}</Text>
     </TouchableOpacity>
   )
 }
 const tb = StyleSheet.create({
-  btn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: C.surfaceHi, borderWidth: 1, borderColor: 'transparent' },
-  text: { fontSize: 13, fontWeight: '600', color: C.textSub },
+  btn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
+  text: { fontSize: 13, fontWeight: '600' },
 })
 
-// ─── Section header ───────────────────────────────────────────────────────────
-function SH({ title, subtitle }: { title: string; subtitle?: string }) {
+// ─── Section Header ───────────────────────────────────────────────────────────
+function SH({ title, subtitle, C }: {
+  title: string; subtitle?: string
+  C: { textPrime: string; textSub: string }
+}) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
       <Text style={{ fontFamily: FONT, fontSize: 15, fontWeight: '700', color: C.textPrime }}>{title}</Text>
@@ -403,10 +374,27 @@ type RangeTab = 'weekly' | 'monthly'
 
 export default function StatsScreen() {
   const insets = useSafeAreaInsets()
+  const { isDark, colors, setThemeMode } = useTheme()
   const [meals, setMeals] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(true)
   const [macroTab, setMacroTab] = useState<MacroTab>('calories')
   const [rangeTab, setRangeTab] = useState<RangeTab>('monthly')
+
+  // Build a C (colors) object matching the dashboard's pattern
+  const C = {
+    bg: colors.background,
+    surface: colors.card,
+    surfaceHi: colors.surfaceHighlight,
+    border: colors.border,
+    borderHi: colors.borderHighlight,
+    textPrime: colors.text,
+    textSub: colors.textMuted,
+    textMid: colors.textSecondary,
+  }
+
+  // Chart rendering colors derived from theme
+  const gridColor = isDark ? '#1c1c1c' : '#E8E8E8'
+  const chartTextColor = isDark ? '#5a5a5a' : '#999999'
 
   useEffect(() => {
     const load = async () => {
@@ -425,8 +413,8 @@ export default function StatsScreen() {
 
   if (loading) {
     return (
-      <View style={[s.fill, { backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', gap: 14 }]}>
-        <ActivityIndicator size="large" color={C.orange} />
+      <View style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+        <ActivityIndicator size="large" color={ACCENT.orange} />
         <Text style={{ fontFamily: FONT, color: C.textSub, fontSize: 14 }}>Loading stats…</Text>
       </View>
     )
@@ -434,10 +422,21 @@ export default function StatsScreen() {
 
   if (meals.length === 0) {
     return (
-      <View style={[s.fill, { backgroundColor: C.bg, paddingTop: insets.top }]}>
-        <View style={s.header}>
-          <View style={s.headerLogo}><View style={s.headerDot} /><Text style={[s.headerTitle, { fontFamily: FONT }]}>Stats</Text></View>
-          <Text style={[s.headerSub, { fontFamily: FONT }]}>Historical overview</Text>
+      <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
+        <View style={[s.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
+          <View style={s.headerLogo}>
+            <View style={[s.headerDot, { backgroundColor: ACCENT.orange }]} />
+            <Text style={[s.headerTitle, { fontFamily: FONT, color: C.textPrime }]}>Stats</Text>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Text style={[s.headerSub, { fontFamily: FONT, color: C.textSub }]}>Historical overview</Text>
+            <TouchableOpacity
+              onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
+              style={[s.themeToggle, { backgroundColor: C.surfaceHi, borderColor: C.borderHi }]}
+            >
+              <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={16} color={isDark ? ACCENT.amber : '#6B6B8A'} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
           <Text style={{ fontSize: 44 }}>📊</Text>
@@ -448,77 +447,72 @@ export default function StatsScreen() {
     )
   }
 
-  // ── Build date buckets ────────────────────────────────────────────────────
+  // ── Build date buckets ─────────────────────────────────────────────────────
   const months12 = lastNMonths(12)
   const weeks8 = lastNWeeks(8)
 
-  // ── Monthly macro sums ────────────────────────────────────────────────────
-  const mCal   = clamp(sumByMonth(meals, 'meal_date', 'total_calories', months12))
-  const mPro   = clamp(sumByMonth(meals, 'meal_date', 'total_protein',  months12))
-  const mCarb  = clamp(sumByMonth(meals, 'meal_date', 'total_carbs',    months12))
-  const mFat   = clamp(sumByMonth(meals, 'meal_date', 'total_fat',      months12))
+  // ── Monthly macro sums ─────────────────────────────────────────────────────
+  const mCal  = clamp(sumByMonth(meals, 'meal_date', 'total_calories', months12))
+  const mPro  = clamp(sumByMonth(meals, 'meal_date', 'total_protein',  months12))
+  const mCarb = clamp(sumByMonth(meals, 'meal_date', 'total_carbs',    months12))
+  const mFat  = clamp(sumByMonth(meals, 'meal_date', 'total_fat',      months12))
   const monthLabels = months12.map(m => m.label)
 
-  // ── Weekly macro sums ─────────────────────────────────────────────────────
-  const wCal   = clamp(sumByWeek(meals, 'meal_date', 'total_calories', weeks8))
-  const wPro   = clamp(sumByWeek(meals, 'meal_date', 'total_protein',  weeks8))
-  const wCarb  = clamp(sumByWeek(meals, 'meal_date', 'total_carbs',    weeks8))
-  const wFat   = clamp(sumByWeek(meals, 'meal_date', 'total_fat',      weeks8))
+  // ── Weekly macro sums ──────────────────────────────────────────────────────
+  const wCal  = clamp(sumByWeek(meals, 'meal_date', 'total_calories', weeks8))
+  const wPro  = clamp(sumByWeek(meals, 'meal_date', 'total_protein',  weeks8))
+  const wCarb = clamp(sumByWeek(meals, 'meal_date', 'total_carbs',    weeks8))
+  const wFat  = clamp(sumByWeek(meals, 'meal_date', 'total_fat',      weeks8))
   const weekLabels = weeks8.map(w => w.label)
 
-  // ── Active range data ─────────────────────────────────────────────────────
+  // ── Active range data ──────────────────────────────────────────────────────
   const isCal = macroTab === 'calories', isPro = macroTab === 'protein'
   const isCarb = macroTab === 'carbs', isFat = macroTab === 'fat'
   const activeMonthlyData = isCal ? mCal : isPro ? mPro : isCarb ? mCarb : mFat
   const activeWeeklyData = isCal ? wCal : isPro ? wPro : isCarb ? wCarb : wFat
-  const macroColor = isCal ? C.orange : isPro ? C.green : isCarb ? C.purple : C.blue
+  const macroColor = isCal ? ACCENT.orange : isPro ? ACCENT.green : isCarb ? ACCENT.purple : ACCENT.blue
   const macroUnit = isCal ? 'kcal' : 'g'
 
-  // ── Monthly vitamin sums ──────────────────────────────────────────────────
-  const mVitC  = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_c',   months12))
-  const mVitD  = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_d',   months12))
-  const mVitA  = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_a',   months12))
-  const mVitE  = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_e',   months12))
-  const mVitK  = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_k',   months12))
-  const mVitB6 = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_b6',  months12))
-  const mVitB12= clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_b12', months12))
+  // ── Monthly vitamin sums ───────────────────────────────────────────────────
+  const mVitC   = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_c',   months12))
+  const mVitD   = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_d',   months12))
+  const mVitA   = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_a',   months12))
+  const mVitE   = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_e',   months12))
+  const mVitK   = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_k',   months12))
+  const mVitB6  = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_b6',  months12))
+  const mVitB12 = clamp(sumByMonth(meals, 'meal_date', 'total_vitamin_b12', months12))
   const hasVitaminData = mVitC.some(v => v > 0) || mVitD.some(v => v > 0) || mVitA.some(v => v > 0)
 
-  // ── This week's and this month's macro totals ─────────────────────────────
+  // ── Period totals ──────────────────────────────────────────────────────────
   const thisWeekIdx = weeks8.length - 1
   const thisMonthIdx = months12.length - 1
 
-  const thisWeekCal  = wCal[thisWeekIdx]  ?? 0
-  const thisWeekPro  = wPro[thisWeekIdx]  ?? 0
-  const thisWeekCarb = wCarb[thisWeekIdx] ?? 0
-  const thisWeekFat  = wFat[thisWeekIdx]  ?? 0
-
+  const thisWeekCal   = wCal[thisWeekIdx]   ?? 0
+  const thisWeekPro   = wPro[thisWeekIdx]   ?? 0
+  const thisWeekCarb  = wCarb[thisWeekIdx]  ?? 0
+  const thisWeekFat   = wFat[thisWeekIdx]   ?? 0
   const thisMonthCal  = mCal[thisMonthIdx]  ?? 0
   const thisMonthPro  = mPro[thisMonthIdx]  ?? 0
   const thisMonthCarb = mCarb[thisMonthIdx] ?? 0
   const thisMonthFat  = mFat[thisMonthIdx]  ?? 0
 
-  // ── All-time averages ─────────────────────────────────────────────────────
+  // ── All-time averages ──────────────────────────────────────────────────────
   const nonZeroCal = mCal.filter(v => v > 0)
   const avgCal = nonZeroCal.length ? Math.round(nonZeroCal.reduce((a, b) => a + b, 0) / nonZeroCal.length) : 0
   const nonZeroPro = mPro.filter(v => v > 0)
   const avgPro = nonZeroPro.length ? Math.round(nonZeroPro.reduce((a, b) => a + b, 0) / nonZeroPro.length) : 0
 
-  // ── Stacked macro data ────────────────────────────────────────────────────
-  const macroStackedMonthly = months12.map((_, i) => ({
-    label: monthLabels[i], values: [mPro[i], mCarb[i], mFat[i]],
-  }))
-  const macroStackedWeekly = weeks8.map((_, i) => ({
-    label: weekLabels[i], values: [wPro[i], wCarb[i], wFat[i]],
-  }))
+  // ── Stacked macro data ─────────────────────────────────────────────────────
+  const macroStackedMonthly = months12.map((_, i) => ({ label: monthLabels[i], values: [mPro[i], mCarb[i], mFat[i]] }))
+  const macroStackedWeekly  = weeks8.map((_, i) => ({ label: weekLabels[i], values: [wPro[i], wCarb[i], wFat[i]] }))
 
-  // ── Vitamin stacked ───────────────────────────────────────────────────────
+  // ── Vitamin stacked ────────────────────────────────────────────────────────
   const vitStackedMonthly = months12.map((_, i) => ({
     label: monthLabels[i],
     values: [mVitC[i], mVitD[i], mVitA[i], mVitE[i], mVitK[i]],
   }))
 
-  // ── Donut: most recent month with vitamin data ────────────────────────────
+  // ── Donut: most recent month with vitamin data ─────────────────────────────
   const vitMonthIdx = [...months12.keys()].reverse().find(i =>
     mVitC[i] > 0 || mVitD[i] > 0 || mVitA[i] > 0
   ) ?? -1
@@ -526,95 +520,101 @@ export default function StatsScreen() {
     ? mVitC[vitMonthIdx] + mVitD[vitMonthIdx] + mVitA[vitMonthIdx] + mVitE[vitMonthIdx] + mVitK[vitMonthIdx]
     : 0
   const vitDonutSlices: PieSlice[] = vitMonthIdx >= 0 ? [
-    { value: mVitC[vitMonthIdx], color: C.orange, label: 'Vit C', pct: vitTotal > 0 ? Math.round(mVitC[vitMonthIdx] / vitTotal * 100) : 0 },
-    { value: mVitD[vitMonthIdx], color: C.rose,   label: 'Vit D', pct: vitTotal > 0 ? Math.round(mVitD[vitMonthIdx] / vitTotal * 100) : 0 },
-    { value: mVitA[vitMonthIdx], color: C.amber,  label: 'Vit A', pct: vitTotal > 0 ? Math.round(mVitA[vitMonthIdx] / vitTotal * 100) : 0 },
-    { value: mVitE[vitMonthIdx], color: C.teal,   label: 'Vit E', pct: vitTotal > 0 ? Math.round(mVitE[vitMonthIdx] / vitTotal * 100) : 0 },
-    { value: mVitK[vitMonthIdx], color: C.green,  label: 'Vit K', pct: vitTotal > 0 ? Math.round(mVitK[vitMonthIdx] / vitTotal * 100) : 0 },
+    { value: mVitC[vitMonthIdx],  color: ACCENT.orange, label: 'Vit C', pct: vitTotal > 0 ? Math.round(mVitC[vitMonthIdx]  / vitTotal * 100) : 0 },
+    { value: mVitD[vitMonthIdx],  color: ACCENT.rose,   label: 'Vit D', pct: vitTotal > 0 ? Math.round(mVitD[vitMonthIdx]  / vitTotal * 100) : 0 },
+    { value: mVitA[vitMonthIdx],  color: ACCENT.amber,  label: 'Vit A', pct: vitTotal > 0 ? Math.round(mVitA[vitMonthIdx]  / vitTotal * 100) : 0 },
+    { value: mVitE[vitMonthIdx],  color: ACCENT.teal,   label: 'Vit E', pct: vitTotal > 0 ? Math.round(mVitE[vitMonthIdx]  / vitTotal * 100) : 0 },
+    { value: mVitK[vitMonthIdx],  color: ACCENT.green,  label: 'Vit K', pct: vitTotal > 0 ? Math.round(mVitK[vitMonthIdx]  / vitTotal * 100) : 0 },
   ].filter(s => s.value > 0) : []
 
   const macroTabDef = [
-    { key: 'calories' as MacroTab, label: 'Calories', color: C.orange },
-    { key: 'protein'  as MacroTab, label: 'Protein',  color: C.green },
-    { key: 'carbs'    as MacroTab, label: 'Carbs',    color: C.purple },
-    { key: 'fat'      as MacroTab, label: 'Fat',      color: C.blue },
+    { key: 'calories' as MacroTab, label: 'Calories', color: ACCENT.orange },
+    { key: 'protein'  as MacroTab, label: 'Protein',  color: ACCENT.green  },
+    { key: 'carbs'    as MacroTab, label: 'Carbs',    color: ACCENT.purple },
+    { key: 'fat'      as MacroTab, label: 'Fat',      color: ACCENT.blue   },
   ]
 
   const MONTHLY_GOALS = { cal: 60000, pro: 4500, carb: 7500, fat: 2000 }
 
   return (
-    <View style={[s.fill, { backgroundColor: C.bg, paddingTop: insets.top }]}>
+    <View style={{ flex: 1, backgroundColor: C.bg, paddingTop: insets.top }}>
 
-      <View style={s.header}>
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <View style={[s.header, { backgroundColor: C.bg, borderBottomColor: C.border }]}>
         <View style={s.headerLogo}>
-          <View style={s.headerDot} />
-          <Text style={[s.headerTitle, { fontFamily: FONT }]}>Stats</Text>
+          <View style={[s.headerDot, { backgroundColor: ACCENT.orange }]} />
+          <Text style={[s.headerTitle, { fontFamily: FONT, color: C.textPrime }]}>Stats</Text>
         </View>
-        <Text style={[s.headerSub, { fontFamily: FONT }]}>Historical overview</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={[s.headerSub, { fontFamily: FONT, color: C.textSub }]}>Historical overview</Text>
+          <TouchableOpacity
+            onPress={() => setThemeMode(isDark ? 'light' : 'dark')}
+            style={[s.themeToggle, { backgroundColor: C.surfaceHi, borderColor: C.borderHi }]}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={16} color={isDark ? ACCENT.amber : '#6B6B8A'} />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={[s.content, { backgroundColor: C.bg }]} showsVerticalScrollIndicator={false}>
 
-        {/* ── Summary stat cards ────────────────────────────────────────── */}
+        {/* ── Summary stat cards ──────────────────────────────────────── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingHorizontal: 2 }}>
-          <StatCard label="Avg Monthly Cal" value={avgCal.toLocaleString()} unit="kcal" color={C.orange} />
-          <StatCard label="Avg Monthly Protein" value={avgPro} unit="g" color={C.green} />
-          <StatCard label="Total Meals" value={meals.length} unit="meals" color={C.purple} />
+          <StatCard label="Avg Monthly Cal" value={avgCal.toLocaleString()} unit="kcal" color={ACCENT.orange} C={C} />
+          <StatCard label="Avg Monthly Protein" value={avgPro} unit="g" color={ACCENT.green} C={C} />
+          <StatCard label="Total Meals" value={meals.length} unit="meals" color={ACCENT.purple} C={C} />
         </ScrollView>
 
-        {/* ── This week + this month totals ─────────────────────────────── */}
-        <View style={s.panel}>
-          <SH title="Period Totals" subtitle="calories · protein · carbs · fat" />
-          <View style={s.divider} />
+        {/* ── Period Totals ────────────────────────────────────────────── */}
+        <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <SH title="Period Totals" subtitle="calories · protein · carbs · fat" C={C} />
+          <View style={[s.divider, { backgroundColor: C.border }]} />
 
-          <Text style={{ fontFamily: FONT, fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-            This Week
-          </Text>
+          <Text style={{ fontFamily: FONT, fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.8 }}>This Week</Text>
           <TotalsRow items={[
-            { label: 'Calories', value: thisWeekCal,  unit: 'kcal', color: C.orange },
-            { label: 'Protein',  value: thisWeekPro,  unit: 'g',    color: C.green  },
-            { label: 'Carbs',    value: thisWeekCarb, unit: 'g',    color: C.purple },
-            { label: 'Fat',      value: thisWeekFat,  unit: 'g',    color: C.blue   },
-          ]} />
+            { label: 'Calories', value: thisWeekCal,  unit: 'kcal', color: ACCENT.orange },
+            { label: 'Protein',  value: thisWeekPro,  unit: 'g',    color: ACCENT.green  },
+            { label: 'Carbs',    value: thisWeekCarb, unit: 'g',    color: ACCENT.purple },
+            { label: 'Fat',      value: thisWeekFat,  unit: 'g',    color: ACCENT.blue   },
+          ]} C={C} />
 
-          <View style={s.divider} />
+          <View style={[s.divider, { backgroundColor: C.border }]} />
 
-          <Text style={{ fontFamily: FONT, fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-            This Month
-          </Text>
+          <Text style={{ fontFamily: FONT, fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.8 }}>This Month</Text>
           <TotalsRow items={[
-            { label: 'Calories', value: thisMonthCal,  unit: 'kcal', color: C.orange },
-            { label: 'Protein',  value: thisMonthPro,  unit: 'g',    color: C.green  },
-            { label: 'Carbs',    value: thisMonthCarb, unit: 'g',    color: C.purple },
-            { label: 'Fat',      value: thisMonthFat,  unit: 'g',    color: C.blue   },
-          ]} />
+            { label: 'Calories', value: thisMonthCal,  unit: 'kcal', color: ACCENT.orange },
+            { label: 'Protein',  value: thisMonthPro,  unit: 'g',    color: ACCENT.green  },
+            { label: 'Carbs',    value: thisMonthCarb, unit: 'g',    color: ACCENT.purple },
+            { label: 'Fat',      value: thisMonthFat,  unit: 'g',    color: ACCENT.blue   },
+          ]} C={C} />
         </View>
 
-        {/* ── Semi-circle current month gauges ──────────────────────────── */}
-        <View style={s.panel}>
-          <SH title="This Month vs. Goal" subtitle="rough monthly targets" />
-          <View style={s.divider} />
+        {/* ── Semi-circle gauges ───────────────────────────────────────── */}
+        <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <SH title="This Month vs. Goal" subtitle="rough monthly targets" C={C} />
+          <View style={[s.divider, { backgroundColor: C.border }]} />
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 8 }}>
-            <SemiGauge value={thisMonthCal}  max={MONTHLY_GOALS.cal}  label="Calories" sublabel="kcal" color={C.orange} />
-            <SemiGauge value={thisMonthPro}  max={MONTHLY_GOALS.pro}  label="Protein"  sublabel="g"    color={C.green}  />
-            <SemiGauge value={thisMonthCarb} max={MONTHLY_GOALS.carb} label="Carbs"    sublabel="g"    color={C.purple} />
-            <SemiGauge value={thisMonthFat}  max={MONTHLY_GOALS.fat}  label="Fat"      sublabel="g"    color={C.blue}   />
+            <SemiGauge value={thisMonthCal}  max={MONTHLY_GOALS.cal}  label="Calories" sublabel="kcal" color={ACCENT.orange} surfaceColor={C.surface} textMuted={C.textSub} borderColor={C.border} />
+            <SemiGauge value={thisMonthPro}  max={MONTHLY_GOALS.pro}  label="Protein"  sublabel="g"    color={ACCENT.green}  surfaceColor={C.surface} textMuted={C.textSub} borderColor={C.border} />
+            <SemiGauge value={thisMonthCarb} max={MONTHLY_GOALS.carb} label="Carbs"    sublabel="g"    color={ACCENT.purple} surfaceColor={C.surface} textMuted={C.textSub} borderColor={C.border} />
+            <SemiGauge value={thisMonthFat}  max={MONTHLY_GOALS.fat}  label="Fat"      sublabel="g"    color={ACCENT.blue}   surfaceColor={C.surface} textMuted={C.textSub} borderColor={C.border} />
           </View>
         </View>
 
-        {/* ── Macro trend chart ─────────────────────────────────────────── */}
-        <View style={s.panel}>
-          <SH title="Macro Trends" />
-          <View style={s.divider} />
+        {/* ── Macro Trends ─────────────────────────────────────────────── */}
+        <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <SH title="Macro Trends" C={C} />
+          <View style={[s.divider, { backgroundColor: C.border }]} />
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TabBtn label="Weekly" active={rangeTab === 'weekly'} color={C.teal} onPress={() => setRangeTab('weekly')} />
-            <TabBtn label="Monthly" active={rangeTab === 'monthly'} color={C.teal} onPress={() => setRangeTab('monthly')} />
+            <TabBtn label="Weekly"  active={rangeTab === 'weekly'}  color={ACCENT.teal} onPress={() => setRangeTab('weekly')}  C={C} />
+            <TabBtn label="Monthly" active={rangeTab === 'monthly'} color={ACCENT.teal} onPress={() => setRangeTab('monthly')} C={C} />
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {macroTabDef.map(t => (
-              <TabBtn key={t.key} label={t.label} active={macroTab === t.key} color={t.color} onPress={() => setMacroTab(t.key)} />
+              <TabBtn key={t.key} label={t.label} active={macroTab === t.key} color={t.color} onPress={() => setMacroTab(t.key)} C={C} />
             ))}
           </ScrollView>
 
@@ -624,44 +624,53 @@ export default function StatsScreen() {
             color={macroColor}
             gradId={`grad_${macroTab}_${rangeTab}`}
             unit={macroUnit}
+            gridColor={gridColor}
+            textColor={chartTextColor}
           />
         </View>
 
-        {/* ── Stacked macro breakdown ────────────────────────────────────── */}
-        <View style={s.panel}>
-          <SH title="Macro Breakdown" subtitle="protein · carbs · fat" />
-          <View style={s.divider} />
+        {/* ── Stacked Macro Breakdown ───────────────────────────────────── */}
+        <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+          <SH title="Macro Breakdown" subtitle="protein · carbs · fat" C={C} />
+          <View style={[s.divider, { backgroundColor: C.border }]} />
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <TabBtn label="Weekly" active={rangeTab === 'weekly'} color={C.teal} onPress={() => setRangeTab('weekly')} />
-            <TabBtn label="Monthly" active={rangeTab === 'monthly'} color={C.teal} onPress={() => setRangeTab('monthly')} />
+            <TabBtn label="Weekly"  active={rangeTab === 'weekly'}  color={ACCENT.teal} onPress={() => setRangeTab('weekly')}  C={C} />
+            <TabBtn label="Monthly" active={rangeTab === 'monthly'} color={ACCENT.teal} onPress={() => setRangeTab('monthly')} C={C} />
           </View>
           <StackedBars
             data={rangeTab === 'weekly' ? macroStackedWeekly : macroStackedMonthly}
-            colors={[C.green, C.purple, C.blue]}
+            colors={[ACCENT.green, ACCENT.purple, ACCENT.blue]}
+            gridColor={gridColor}
+            textColor={chartTextColor}
           />
-          <Legend items={[{ color: C.green, label: 'Protein' }, { color: C.purple, label: 'Carbs' }, { color: C.blue, label: 'Fat' }]} />
+          <Legend items={[{ color: ACCENT.green, label: 'Protein' }, { color: ACCENT.purple, label: 'Carbs' }, { color: ACCENT.blue, label: 'Fat' }]} textColor={C.textMid} />
         </View>
 
-        {/* ── Vitamins ──────────────────────────────────────────────────── */}
+        {/* ── Vitamins ─────────────────────────────────────────────────── */}
         {hasVitaminData ? (
           <>
-            <View style={s.panel}>
-              <SH title="Vitamin Totals" subtitle="monthly stacked" />
-              <View style={s.divider} />
-              <StackedBars data={vitStackedMonthly} colors={[C.orange, C.rose, C.amber, C.teal, C.green]} />
+            <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+              <SH title="Vitamin Totals" subtitle="monthly stacked" C={C} />
+              <View style={[s.divider, { backgroundColor: C.border }]} />
+              <StackedBars
+                data={vitStackedMonthly}
+                colors={[ACCENT.orange, ACCENT.rose, ACCENT.amber, ACCENT.teal, ACCENT.green]}
+                gridColor={gridColor}
+                textColor={chartTextColor}
+              />
               <Legend items={[
-                { color: C.orange, label: 'Vit C (mg)' }, { color: C.rose, label: 'Vit D (μg)' },
-                { color: C.amber, label: 'Vit A (μg)' }, { color: C.teal, label: 'Vit E (mg)' },
-                { color: C.green, label: 'Vit K (μg)' },
-              ]} />
+                { color: ACCENT.orange, label: 'Vit C (mg)' }, { color: ACCENT.rose, label: 'Vit D (μg)' },
+                { color: ACCENT.amber, label: 'Vit A (μg)' },  { color: ACCENT.teal, label: 'Vit E (mg)' },
+                { color: ACCENT.green, label: 'Vit K (μg)' },
+              ]} textColor={C.textMid} />
             </View>
 
             {vitDonutSlices.length > 1 && (
-              <View style={s.panel}>
-                <SH title="Vitamin Distribution" subtitle={`${monthLabels[vitMonthIdx]} — most recent`} />
-                <View style={s.divider} />
+              <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <SH title="Vitamin Distribution" subtitle={`${monthLabels[vitMonthIdx]} — most recent`} C={C} />
+                <View style={[s.divider, { backgroundColor: C.border }]} />
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-                  <DonutChart slices={vitDonutSlices} size={150} />
+                  <DonutChart slices={vitDonutSlices} size={150} surfaceColor={C.surface} textPrime={C.textPrime} textMuted={C.textSub} />
                   <View style={{ flex: 1, gap: 10 }}>
                     {vitDonutSlices.map(sl => (
                       <View key={sl.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -681,45 +690,45 @@ export default function StatsScreen() {
             )}
 
             {mVitC.some(v => v > 0) && (
-              <View style={s.panel}>
-                <SH title="Vitamin C Trend" subtitle="monthly total (mg)" />
-                <View style={s.divider} />
-                <AreaChart data={mVitC} labels={monthLabels} color={C.orange} gradId="gVitC" unit="mg" />
+              <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <SH title="Vitamin C Trend" subtitle="monthly total (mg)" C={C} />
+                <View style={[s.divider, { backgroundColor: C.border }]} />
+                <AreaChart data={mVitC} labels={monthLabels} color={ACCENT.orange} gradId="gVitC" unit="mg" gridColor={gridColor} textColor={chartTextColor} />
               </View>
             )}
             {mVitD.some(v => v > 0) && (
-              <View style={s.panel}>
-                <SH title="Vitamin D Trend" subtitle="monthly total (μg)" />
-                <View style={s.divider} />
-                <AreaChart data={mVitD} labels={monthLabels} color={C.rose} gradId="gVitD" unit="μg" />
+              <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <SH title="Vitamin D Trend" subtitle="monthly total (μg)" C={C} />
+                <View style={[s.divider, { backgroundColor: C.border }]} />
+                <AreaChart data={mVitD} labels={monthLabels} color={ACCENT.rose} gradId="gVitD" unit="μg" gridColor={gridColor} textColor={chartTextColor} />
               </View>
             )}
             {mVitA.some(v => v > 0) && (
-              <View style={s.panel}>
-                <SH title="Vitamin A Trend" subtitle="monthly total (μg)" />
-                <View style={s.divider} />
-                <AreaChart data={mVitA} labels={monthLabels} color={C.amber} gradId="gVitA" unit="μg" />
+              <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <SH title="Vitamin A Trend" subtitle="monthly total (μg)" C={C} />
+                <View style={[s.divider, { backgroundColor: C.border }]} />
+                <AreaChart data={mVitA} labels={monthLabels} color={ACCENT.amber} gradId="gVitA" unit="μg" gridColor={gridColor} textColor={chartTextColor} />
               </View>
             )}
             {(mVitB6.some(v => v > 0) || mVitB12.some(v => v > 0)) && (
-              <View style={s.panel}>
-                <SH title="B Vitamins" subtitle="B6 (mg) · B12 (μg) monthly" />
-                <View style={s.divider} />
+              <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+                <SH title="B Vitamins" subtitle="B6 (mg) · B12 (μg) monthly" C={C} />
+                <View style={[s.divider, { backgroundColor: C.border }]} />
                 {mVitB6.some(v => v > 0) && (
-                  <AreaChart data={mVitB6} labels={monthLabels} color={C.purple} gradId="gVitB6" unit="mg" height={130} />
+                  <AreaChart data={mVitB6} labels={monthLabels} color={ACCENT.purple} gradId="gVitB6" unit="mg" height={130} gridColor={gridColor} textColor={chartTextColor} />
                 )}
                 {mVitB12.some(v => v > 0) && (
-                  <AreaChart data={mVitB12} labels={monthLabels} color={C.blue} gradId="gVitB12" unit="μg" height={130} />
+                  <AreaChart data={mVitB12} labels={monthLabels} color={ACCENT.blue} gradId="gVitB12" unit="μg" height={130} gridColor={gridColor} textColor={chartTextColor} />
                 )}
                 <Legend items={[
-                  ...(mVitB6.some(v => v > 0) ? [{ color: C.purple, label: 'B6' }] : []),
-                  ...(mVitB12.some(v => v > 0) ? [{ color: C.blue, label: 'B12' }] : []),
-                ]} />
+                  ...(mVitB6.some(v => v > 0)  ? [{ color: ACCENT.purple, label: 'B6'  }] : []),
+                  ...(mVitB12.some(v => v > 0) ? [{ color: ACCENT.blue,   label: 'B12' }] : []),
+                ]} textColor={C.textMid} />
               </View>
             )}
           </>
         ) : (
-          <View style={[s.panel, { alignItems: 'center', gap: 6 }]}>
+          <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border, alignItems: 'center', gap: 6 }]}>
             <Text style={{ fontFamily: FONT, fontSize: 13, color: C.textMid, fontWeight: '600' }}>No vitamin data yet</Text>
             <Text style={{ fontFamily: FONT, fontSize: 12, color: C.textSub, textAlign: 'center' }}>
               Vitamin tracking begins automatically when you log meals with ingredients that have vitamin data in the USDA database.
@@ -734,20 +743,19 @@ export default function StatsScreen() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  fill: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: Platform.OS === 'ios' ? 56 : 36,
-    paddingBottom: 14, backgroundColor: C.bg,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+    paddingBottom: 14,
+    borderBottomWidth: 1,
   },
   headerLogo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: C.orange },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: C.textPrime, letterSpacing: -0.4 },
-  headerSub: { fontSize: 12, color: C.textSub },
-  scroll: { flex: 1 },
+  headerDot: { width: 8, height: 8, borderRadius: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '700', letterSpacing: -0.4 },
+  headerSub: { fontSize: 12 },
+  themeToggle: { width: 32, height: 32, borderRadius: 9, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   content: { padding: 20, paddingBottom: 60, gap: 20 },
-  panel: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.border, borderRadius: 22, padding: 18, gap: 14 },
-  divider: { height: 1, backgroundColor: C.border, marginHorizontal: -18 },
+  panel: { borderWidth: 1, borderRadius: 22, padding: 18, gap: 14 },
+  divider: { height: 1, marginHorizontal: -18 },
 })
