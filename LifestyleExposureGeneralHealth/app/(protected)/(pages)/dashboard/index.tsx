@@ -504,17 +504,21 @@ export default function Dashboard() {
   const [meals, setMeals] = useState<MealWithItems[]>([]);
   const [todaySchedule, setTodaySchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
   const userIdRef = React.useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories');
   const [showAddMeal, setShowAddMeal] = useState(false);
 
+  // ── Dark mode background: matches second file's #181818
+  const darkBg = '#181818';
+  const surfaceHi = isDark ? '#212121' : '#F5F5F5';
+  const borderHi = isDark ? '#2a2a2a' : '#E0E0E0';
+
   const C = {
-    bg: colors.background,
-    surface: colors.card,
-    surfaceHi: colors.surfaceHighlight,
-    border: colors.border,
-    borderHi: colors.borderHighlight,
+    bg: isDark ? darkBg : colors.background,
+    surface: isDark ? '#1e1e1e' : colors.card,
+    surfaceHi,
+    border: isDark ? '#252525' : (colors.border ?? '#E5E5E5'),
+    borderHi,
     textPrime: colors.text,
     textSub: colors.textMuted,
     textMid: colors.textSecondary,
@@ -524,6 +528,7 @@ export default function Dashboard() {
     purple: '#8B5CF6',
     rose: '#fb7185',
     amber: '#fbbf24',
+    overlayColor: isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.4)',
   };
 
   // ─── Data fetchers ──────────────────────────────────────────────────────────
@@ -565,9 +570,8 @@ export default function Dashboard() {
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.replace('/login'); return; }
+      if (!user) { router.replace('/login' as any); return; }
 
-      setUserId(user.id);
       userIdRef.current = user.id;
 
       const oneYearAgo = new Date();
@@ -656,7 +660,7 @@ export default function Dashboard() {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    router.replace('/login');
+    router.replace('/login' as any);
   };
 
   // ─── Loading state ──────────────────────────────────────────────────────────
@@ -681,6 +685,7 @@ export default function Dashboard() {
     datasets: [{ data: data.map(d => (d as any)[key] ?? 0) }],
   });
 
+  // Chart background matches C.surfaceHi — same as second dashboard
   const baseChartConfig = {
     backgroundGradientFrom: C.surfaceHi,
     backgroundGradientTo: C.surfaceHi,
@@ -729,7 +734,7 @@ export default function Dashboard() {
     { key: 'macros' as const, label: 'Macros', color: C.purple },
   ];
 
-  // Date-grouped meals (last 7 days for display)
+  // Date-grouped meals (last 7 days)
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const recentMeals = meals.filter(m => {
     const dateStr = (m as any).meal_date;
@@ -804,6 +809,7 @@ export default function Dashboard() {
 
         {/* ── Chart Panel ────────────────────────────────────────────────── */}
         <View style={[styles.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
+          {/* Chart area has its own surfaceHi background to match second file */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
             {tabs.map(t => (
               <TabButton key={t.key} label={t.label} active={activeTab === t.key} color={t.color} onPress={() => setActiveTab(t.key)} C={C} />
@@ -819,35 +825,38 @@ export default function Dashboard() {
             {activeTab === 'macros' && 'Protein · Carbs · Sugar — monthly averages'}
           </Text>
 
-          {activeTab === 'calories' && (
-            <LineChart data={toChartData(calorieData, 'calories')} width={CHART_WIDTH} height={200}
-              chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(249,115,22,${o})`, fillShadowGradientFrom: C.orange, fillShadowGradientTo: C.surfaceHi, fillShadowGradientFromOpacity: 0.28, fillShadowGradientToOpacity: 0 }}
-              bezier style={styles.chart} />
-          )}
-          {activeTab === 'weight' && (
-            <LineChart data={toChartData(weightData, 'value')} width={CHART_WIDTH} height={200}
-              chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(96,165,250,${o})`, fillShadowGradientFrom: C.blue, fillShadowGradientTo: C.surfaceHi, fillShadowGradientFromOpacity: 0.28, fillShadowGradientToOpacity: 0 }}
-              bezier style={styles.chart} />
-          )}
-          {activeTab === 'protein' && (
-            <BarChart data={toChartData(proteinData, 'value')} width={CHART_WIDTH} height={200}
-              yAxisLabel="" yAxisSuffix="g"
-              chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(52,211,153,${o})` }}
-              style={styles.chart} />
-          )}
-          {activeTab === 'macros' && (
-            <>
-              <LineChart data={macrosData} width={CHART_WIDTH} height={200} chartConfig={baseChartConfig} bezier withDots={false} style={styles.chart} />
-              <View style={styles.legendRow}>
-                {([[C.green, 'Protein'], [C.purple, 'Carbs'], [C.rose, 'Sugar']] as [string, string][]).map(([color, lbl]) => (
-                  <View key={lbl} style={styles.legendItem}>
-                    <View style={[styles.legendDot, { backgroundColor: color }]} />
-                    <Text style={[styles.legendText, { color: C.textMid }]}>{lbl}</Text>
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
+          {/* Chart wrapper with surfaceHi background — matches second dashboard */}
+          <View style={[styles.chartWrapper, { backgroundColor: C.surfaceHi, borderRadius: 12 }]}>
+            {activeTab === 'calories' && (
+              <LineChart data={toChartData(calorieData, 'calories')} width={CHART_WIDTH} height={200}
+                chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(249,115,22,${o})`, fillShadowGradientFrom: C.orange, fillShadowGradientTo: C.surfaceHi, fillShadowGradientFromOpacity: 0.28, fillShadowGradientToOpacity: 0 }}
+                bezier style={styles.chart} />
+            )}
+            {activeTab === 'weight' && (
+              <LineChart data={toChartData(weightData, 'value')} width={CHART_WIDTH} height={200}
+                chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(96,165,250,${o})`, fillShadowGradientFrom: C.blue, fillShadowGradientTo: C.surfaceHi, fillShadowGradientFromOpacity: 0.28, fillShadowGradientToOpacity: 0 }}
+                bezier style={styles.chart} />
+            )}
+            {activeTab === 'protein' && (
+              <BarChart data={toChartData(proteinData, 'value')} width={CHART_WIDTH} height={200}
+                yAxisLabel="" yAxisSuffix="g"
+                chartConfig={{ ...baseChartConfig, color: (o = 1) => `rgba(52,211,153,${o})` }}
+                style={styles.chart} />
+            )}
+            {activeTab === 'macros' && (
+              <>
+                <LineChart data={macrosData} width={CHART_WIDTH} height={200} chartConfig={baseChartConfig} bezier withDots={false} style={styles.chart} />
+                <View style={styles.legendRow}>
+                  {([[C.green, 'Protein'], [C.purple, 'Carbs'], [C.rose, 'Sugar']] as [string, string][]).map(([color, lbl]) => (
+                    <View key={lbl} style={styles.legendItem}>
+                      <View style={[styles.legendDot, { backgroundColor: color }]} />
+                      <Text style={[styles.legendText, { color: C.textMid }]}>{lbl}</Text>
+                    </View>
+                  ))}
+                </View>
+              </>
+            )}
+          </View>
         </View>
 
         {/* ── Active Diet Panel ──────────────────────────────────────────── */}
@@ -859,14 +868,14 @@ export default function Dashboard() {
                 {activeDiet?.diet_name ?? 'No diet selected'}
               </Text>
               <TouchableOpacity
-                onPress={() => router.push('/(protected)/(pages)/journal/diets')}
+                onPress={() => router.push('/(protected)/(pages)/journal/diets' as any)}
                 style={[dietStyles.headerBtn, { backgroundColor: C.surfaceHi, borderColor: C.borderHi }]}
               >
                 <Ionicons name="swap-horizontal" size={13} color={C.orange} />
                 <Text style={[dietStyles.headerBtnText, { color: C.orange }]}>Switch</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => router.push('/(protected)/(pages)/dashboard/meal-schedule')}
+                onPress={() => router.push('/(protected)/(pages)/dashboard/meal-schedule' as any)}
                 style={[dietStyles.headerBtn, { backgroundColor: C.purple + '18', borderColor: C.purple + '44' }]}
               >
                 <Ionicons name="calendar-outline" size={13} color={C.purple} />
@@ -879,7 +888,7 @@ export default function Dashboard() {
 
           {!activeDiet ? (
             <TouchableOpacity
-              onPress={() => router.push('/(protected)/(pages)/journal/diets')}
+              onPress={() => router.push('/(protected)/(pages)/journal/diets' as any)}
               style={{ paddingVertical: 20, alignItems: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderColor: C.border, borderRadius: 12 }}
             >
               <Text style={{ fontSize: 13, color: C.textSub }}>Tap to select or create a diet plan</Text>
@@ -887,7 +896,7 @@ export default function Dashboard() {
           ) : (
             <TodaySchedulePanel
               schedule={todaySchedule}
-              onGoToSchedule={() => router.push('/(protected)/(pages)/dashboard/meal-schedule')}
+              onGoToSchedule={() => router.push('/(protected)/(pages)/dashboard/meal-schedule' as any)}
               onLogMeal={logScheduledMeal}
               isMealLogged={isMealLoggedToday}
               C={C}
@@ -978,8 +987,9 @@ const styles = StyleSheet.create({
   tab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: 'transparent' },
   tabText: { fontSize: 13, fontWeight: '600' },
   chartSubtitle: { fontSize: 12, marginBottom: 4 },
+  chartWrapper: { overflow: 'hidden' },
   chart: { borderRadius: 12, marginLeft: -10 },
-  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 20 },
+  legendRow: { flexDirection: 'row', justifyContent: 'center', gap: 20, paddingBottom: 8 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 12 },

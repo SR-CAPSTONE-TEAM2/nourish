@@ -22,7 +22,7 @@ const CHART_W = SCREEN_WIDTH - 76
 
 const FONT = Platform.OS === 'ios' ? 'System' : 'sans-serif'
 
-// ─── Accent palette (always the same regardless of mode) ─────────────────────
+// ─── Accent palette ───────────────────────────────────────────────────────────
 const ACCENT = {
   orange: '#f97316', blue: '#60a5fa', green: '#34d399',
   purple: '#a78bfa', rose: '#fb7185', amber: '#fbbf24', teal: '#2dd4bf',
@@ -102,14 +102,14 @@ function buildPath(pts: { x: number; y: number }[]): string {
   return d
 }
 
-function AreaChart({ data, labels, color, gradId, height = 150, unit = '', gridColor, textColor }: {
+function AreaChart({ data, labels, color, gradId, height = 150, unit = '', gridColor, textColor, bgColor }: {
   data: number[]; labels: string[]; color: string
   gradId: string; height?: number; unit?: string
-  gridColor: string; textColor: string
+  gridColor: string; textColor: string; bgColor: string
 }) {
   if (data.every(v => v === 0)) {
     return (
-      <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ height, alignItems: 'center', justifyContent: 'center', backgroundColor: bgColor, borderRadius: 12 }}>
         <Text style={{ fontFamily: FONT, fontSize: 12, color: textColor }}>No data for this period</Text>
       </View>
     )
@@ -131,47 +131,50 @@ function AreaChart({ data, labels, color, gradId, height = 150, unit = '', gridC
   const skipLabel = data.length > 9
 
   return (
-    <Svg width={w} height={h}>
-      <Defs>
-        <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={color} stopOpacity="0.3" />
-          <Stop offset="1" stopColor={color} stopOpacity="0" />
-        </LinearGradient>
-      </Defs>
-      {[0, 0.25, 0.5, 0.75, 1].map(f => (
-        <Line key={f} x1={pL} y1={pT + cH - f * cH} x2={w - pR} y2={pT + cH - f * cH} stroke={gridColor} strokeWidth="1" />
-      ))}
-      <Path d={areaPath} fill={`url(#${gradId})`} />
-      <Path d={linePath} stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-      {pts.map((p, i) => data[i] > 0 && (
-        <Circle key={i} cx={p.x} cy={p.y} r="3.5" fill={color} />
-      ))}
-      {labels.map((lbl, i) => {
-        if (skipLabel && i % 2 !== 0) return null
-        return (
-          <SvgText key={lbl} x={pts[i]?.x ?? 0} y={h - 6} fontSize="9" fontFamily={FONT} fill={textColor} textAnchor="middle">
-            {lbl}
-          </SvgText>
-        )
-      })}
-      <SvgText x={pL + 2} y={pT - 5} fontSize="9" fontFamily={FONT} fill={textColor}>
-        {Math.round(max)}{unit}
-      </SvgText>
-    </Svg>
+    // Visualization background color — matches second dashboard panel bg
+    <View style={{ backgroundColor: bgColor, borderRadius: 12, overflow: 'hidden' }}>
+      <Svg width={w} height={h}>
+        <Defs>
+          <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <Stop offset="0" stopColor={color} stopOpacity="0.3" />
+            <Stop offset="1" stopColor={color} stopOpacity="0" />
+          </LinearGradient>
+        </Defs>
+        {[0, 0.25, 0.5, 0.75, 1].map(f => (
+          <Line key={f} x1={pL} y1={pT + cH - f * cH} x2={w - pR} y2={pT + cH - f * cH} stroke={gridColor} strokeWidth="1" />
+        ))}
+        <Path d={areaPath} fill={`url(#${gradId})`} />
+        <Path d={linePath} stroke={color} strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        {pts.map((p, i) => data[i] > 0 && (
+          <Circle key={i} cx={p.x} cy={p.y} r="3.5" fill={color} />
+        ))}
+        {labels.map((lbl, i) => {
+          if (skipLabel && i % 2 !== 0) return null
+          return (
+            <SvgText key={lbl} x={pts[i]?.x ?? 0} y={h - 6} fontSize="9" fontFamily={FONT} fill={textColor} textAnchor="middle">
+              {lbl}
+            </SvgText>
+          )
+        })}
+        <SvgText x={pL + 2} y={pT - 5} fontSize="9" fontFamily={FONT} fill={textColor}>
+          {Math.round(max)}{unit}
+        </SvgText>
+      </Svg>
+    </View>
   )
 }
 
 // ─── Chart: stacked bars ──────────────────────────────────────────────────────
 interface StackedCol { label: string; values: number[] }
 
-function StackedBars({ data, colors, height = 150, gridColor, textColor }: {
+function StackedBars({ data, colors, height = 150, gridColor, textColor, bgColor }: {
   data: StackedCol[]; colors: string[]; height?: number
-  gridColor: string; textColor: string
+  gridColor: string; textColor: string; bgColor: string
 }) {
   const hasData = data.some(d => d.values.some(v => v > 0))
   if (!hasData) {
     return (
-      <View style={{ height, alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ height, alignItems: 'center', justifyContent: 'center', backgroundColor: bgColor, borderRadius: 12 }}>
         <Text style={{ fontFamily: FONT, fontSize: 12, color: textColor }}>No data for this period</Text>
       </View>
     )
@@ -186,53 +189,79 @@ function StackedBars({ data, colors, height = 150, gridColor, textColor }: {
   const globalMax = Math.max(...allTotals, 1)
 
   return (
-    <Svg width={w} height={h}>
-      {[0, 0.5, 1].map(f => (
-        <Line key={f} x1={pL} y1={pT + cH - f * cH} x2={w - pR} y2={pT + cH - f * cH} stroke={gridColor} strokeWidth="1" />
-      ))}
-      {data.map((col, i) => {
-        const cx = pL + gap * i + gap / 2
-        let yBase = pT + cH
-        return (
-          <G key={col.label}>
-            {col.values.map((val, vi) => {
-              if (!val || val <= 0) return null
-              const bH = Math.max(2, (val / globalMax) * cH)
-              yBase -= bH
-              return <Rect key={vi} x={cx - barW / 2} y={yBase} width={barW} height={bH} fill={colors[vi % colors.length]} rx="2" />
-            })}
-            <SvgText x={cx} y={h - 8} fontSize="9" fontFamily={FONT} fill={textColor} textAnchor="middle">{col.label}</SvgText>
-          </G>
-        )
-      })}
-    </Svg>
+    <View style={{ backgroundColor: bgColor, borderRadius: 12, overflow: 'hidden' }}>
+      <Svg width={w} height={h}>
+        {[0, 0.5, 1].map(f => (
+          <Line key={f} x1={pL} y1={pT + cH - f * cH} x2={w - pR} y2={pT + cH - f * cH} stroke={gridColor} strokeWidth="1" />
+        ))}
+        {data.map((col, i) => {
+          const cx = pL + gap * i + gap / 2
+          let yBase = pT + cH
+          return (
+            <G key={col.label}>
+              {col.values.map((val, vi) => {
+                if (!val || val <= 0) return null
+                const bH = Math.max(2, (val / globalMax) * cH)
+                yBase -= bH
+                return <Rect key={vi} x={cx - barW / 2} y={yBase} width={barW} height={bH} fill={colors[vi % colors.length]} rx="2" />
+              })}
+              <SvgText x={cx} y={h - 8} fontSize="9" fontFamily={FONT} fill={textColor} textAnchor="middle">{col.label}</SvgText>
+            </G>
+          )
+        })}
+      </Svg>
+    </View>
   )
 }
 
-// ─── Chart: semi-circle gauge ─────────────────────────────────────────────────
+// ─── Chart: semi-circle gauge (FIXED) ────────────────────────────────────────
+// Fix: removed clamping of fy that caused arc to go outside the path.
+// The semi-circle is a strict 180° arc from left to right, rendered purely
+// with a fixed SVG arc so it never overflows its track.
 function SemiGauge({ value, max, label, sublabel, color, size = 110, surfaceColor, textMuted, borderColor }: {
   value: number; max: number; label: string; sublabel?: string; color: string; size?: number
   surfaceColor: string; textMuted: string; borderColor: string
 }) {
   const r = size * 0.36
-  const cx = size / 2, cy = size * 0.60
+  const cx = size / 2
+  // Place cy so the arc sits in the upper ~60% of the SVG height
+  const cy = size * 0.58
   const sw = 9
   const pct = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0
-  const startX = cx - r, startY = cy, endX = cx + r
-  const fillAngle = Math.PI - pct * Math.PI
-  const fx = cx + r * Math.cos(fillAngle)
-  const fy = Math.min(cy, cy + r * Math.sin(fillAngle))
-  const largeArc = pct > 0.5 ? 1 : 0
-  const trackPath = `M ${startX.toFixed(1)} ${startY.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${endX.toFixed(1)} ${startY.toFixed(1)}`
-  const fillPath = pct > 0.01 ? `M ${startX.toFixed(1)} ${startY.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 ${largeArc} 1 ${fx.toFixed(1)} ${fy.toFixed(1)}` : ''
+
+  // Track: always a full 180° arc from left to right
+  const startX = cx - r
+  const startY = cy
+  const endX = cx + r
+  const endY = cy
+  const trackPath = `M ${startX.toFixed(1)} ${startY.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${endX.toFixed(1)} ${endY.toFixed(1)}`
+
+  // Fill: sweep from startX,startY clockwise by pct * 180°
+  // Angle: starts at 180° (left), goes to 0° (right) — but in SVG coords,
+  // the arc goes counter-clockwise from the left endpoint.
+  // We draw from left endpoint, sweeping pct * π radians clockwise (sweep-flag=1).
+  let fillPath = ''
+  if (pct > 0.005) {
+    // Angle from the left of the arc: 0 at left, π at right
+    const sweepAngle = pct * Math.PI
+    // In standard math coords with origin at cx,cy: left = π, so our angle is π - sweepAngle
+    const angle = Math.PI - sweepAngle
+    const fx = cx + r * Math.cos(angle)
+    const fy = cy - r * Math.sin(angle) // subtract because SVG y-axis is flipped
+    const largeArc = pct > 0.5 ? 1 : 0
+    fillPath = `M ${startX.toFixed(1)} ${startY.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 ${largeArc} 1 ${fx.toFixed(1)} ${fy.toFixed(1)}`
+  }
+
   const displayVal = value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value))
+  const svgH = size * 0.72
+
   return (
     <View style={{ alignItems: 'center', flex: 1, minWidth: 80 }}>
-      <Svg width={size} height={size * 0.68}>
+      <Svg width={size} height={svgH}>
         <Path d={trackPath} stroke={borderColor} strokeWidth={sw} fill="none" strokeLinecap="round" />
         {fillPath ? <Path d={fillPath} stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round" /> : null}
-        <SvgText x={cx} y={cy - 3} fontSize="17" fontWeight="700" fontFamily={FONT} fill={color} textAnchor="middle">{displayVal}</SvgText>
-        {sublabel && <SvgText x={cx} y={cy + 11} fontSize="9" fontFamily={FONT} fill={textMuted} textAnchor="middle">{sublabel}</SvgText>}
+        <SvgText x={cx} y={cy - 2} fontSize="17" fontWeight="700" fontFamily={FONT} fill={color} textAnchor="middle">{displayVal}</SvgText>
+        {sublabel && <SvgText x={cx} y={cy + 13} fontSize="9" fontFamily={FONT} fill={textMuted} textAnchor="middle">{sublabel}</SvgText>}
       </Svg>
       <Text style={{ fontFamily: FONT, fontSize: 11, color: textMuted, textAlign: 'center', marginTop: -4 }}>{label}</Text>
     </View>
@@ -380,19 +409,24 @@ export default function StatsScreen() {
   const [macroTab, setMacroTab] = useState<MacroTab>('calories')
   const [rangeTab, setRangeTab] = useState<RangeTab>('monthly')
 
-  // Build a C (colors) object matching the dashboard's pattern
+  // ── Dark mode background matches second stats file (#181818)
+  const darkBg = '#181818'
+  const surfaceHi = isDark ? '#212121' : '#F5F5F5'
+  const borderHi = isDark ? '#2a2a2a' : '#E0E0E0'
+
   const C = {
-    bg: colors.background,
-    surface: colors.card,
-    surfaceHi: colors.surfaceHighlight,
-    border: colors.border,
-    borderHi: colors.borderHighlight,
+    bg: isDark ? darkBg : colors.background,
+    surface: isDark ? '#1e1e1e' : colors.card,
+    surfaceHi,
+    border: isDark ? '#252525' : (colors.border ?? '#E5E5E5'),
+    borderHi,
     textPrime: colors.text,
     textSub: colors.textMuted,
     textMid: colors.textSecondary,
   }
 
-  // Chart rendering colors derived from theme
+  // Visualization panel background — same surfaceHi tint as second dashboard
+  const vizBg = surfaceHi
   const gridColor = isDark ? '#1c1c1c' : '#E8E8E8'
   const chartTextColor = isDark ? '#5a5a5a' : '#999999'
 
@@ -594,11 +628,14 @@ export default function StatsScreen() {
         <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
           <SH title="This Month vs. Goal" subtitle="rough monthly targets" C={C} />
           <View style={[s.divider, { backgroundColor: C.border }]} />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 8 }}>
-            <SemiGauge value={thisMonthCal}  max={MONTHLY_GOALS.cal}  label="Calories" sublabel="kcal" color={ACCENT.orange} surfaceColor={C.surface} textMuted={C.textSub} borderColor={C.border} />
-            <SemiGauge value={thisMonthPro}  max={MONTHLY_GOALS.pro}  label="Protein"  sublabel="g"    color={ACCENT.green}  surfaceColor={C.surface} textMuted={C.textSub} borderColor={C.border} />
-            <SemiGauge value={thisMonthCarb} max={MONTHLY_GOALS.carb} label="Carbs"    sublabel="g"    color={ACCENT.purple} surfaceColor={C.surface} textMuted={C.textSub} borderColor={C.border} />
-            <SemiGauge value={thisMonthFat}  max={MONTHLY_GOALS.fat}  label="Fat"      sublabel="g"    color={ACCENT.blue}   surfaceColor={C.surface} textMuted={C.textSub} borderColor={C.border} />
+          {/* Gauge background panel — matches second dashboard viz bg */}
+          <View style={{ backgroundColor: vizBg, borderRadius: 12, padding: 12 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 8 }}>
+              <SemiGauge value={thisMonthCal}  max={MONTHLY_GOALS.cal}  label="Calories" sublabel="kcal" color={ACCENT.orange} surfaceColor={vizBg} textMuted={C.textSub} borderColor={isDark ? '#2a2a2a' : '#E0E0E0'} />
+              <SemiGauge value={thisMonthPro}  max={MONTHLY_GOALS.pro}  label="Protein"  sublabel="g"    color={ACCENT.green}  surfaceColor={vizBg} textMuted={C.textSub} borderColor={isDark ? '#2a2a2a' : '#E0E0E0'} />
+              <SemiGauge value={thisMonthCarb} max={MONTHLY_GOALS.carb} label="Carbs"    sublabel="g"    color={ACCENT.purple} surfaceColor={vizBg} textMuted={C.textSub} borderColor={isDark ? '#2a2a2a' : '#E0E0E0'} />
+              <SemiGauge value={thisMonthFat}  max={MONTHLY_GOALS.fat}  label="Fat"      sublabel="g"    color={ACCENT.blue}   surfaceColor={vizBg} textMuted={C.textSub} borderColor={isDark ? '#2a2a2a' : '#E0E0E0'} />
+            </View>
           </View>
         </View>
 
@@ -626,6 +663,7 @@ export default function StatsScreen() {
             unit={macroUnit}
             gridColor={gridColor}
             textColor={chartTextColor}
+            bgColor={vizBg}
           />
         </View>
 
@@ -642,6 +680,7 @@ export default function StatsScreen() {
             colors={[ACCENT.green, ACCENT.purple, ACCENT.blue]}
             gridColor={gridColor}
             textColor={chartTextColor}
+            bgColor={vizBg}
           />
           <Legend items={[{ color: ACCENT.green, label: 'Protein' }, { color: ACCENT.purple, label: 'Carbs' }, { color: ACCENT.blue, label: 'Fat' }]} textColor={C.textMid} />
         </View>
@@ -657,6 +696,7 @@ export default function StatsScreen() {
                 colors={[ACCENT.orange, ACCENT.rose, ACCENT.amber, ACCENT.teal, ACCENT.green]}
                 gridColor={gridColor}
                 textColor={chartTextColor}
+                bgColor={vizBg}
               />
               <Legend items={[
                 { color: ACCENT.orange, label: 'Vit C (mg)' }, { color: ACCENT.rose, label: 'Vit D (μg)' },
@@ -669,21 +709,24 @@ export default function StatsScreen() {
               <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
                 <SH title="Vitamin Distribution" subtitle={`${monthLabels[vitMonthIdx]} — most recent`} C={C} />
                 <View style={[s.divider, { backgroundColor: C.border }]} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-                  <DonutChart slices={vitDonutSlices} size={150} surfaceColor={C.surface} textPrime={C.textPrime} textMuted={C.textSub} />
-                  <View style={{ flex: 1, gap: 10 }}>
-                    {vitDonutSlices.map(sl => (
-                      <View key={sl.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sl.color }} />
-                        <View>
-                          <Text style={{ fontFamily: FONT, fontSize: 12, fontWeight: '600', color: C.textMid }}>{sl.label}</Text>
-                          <Text style={{ fontFamily: FONT, fontSize: 11, fontWeight: '700', color: C.textPrime }}>
-                            {sl.value.toFixed(1)}
-                            <Text style={{ color: C.textSub, fontWeight: '400' }}>  {sl.pct}%</Text>
-                          </Text>
+                {/* Donut background */}
+                <View style={{ backgroundColor: vizBg, borderRadius: 12, padding: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                    <DonutChart slices={vitDonutSlices} size={150} surfaceColor={vizBg} textPrime={C.textPrime} textMuted={C.textSub} />
+                    <View style={{ flex: 1, gap: 10 }}>
+                      {vitDonutSlices.map(sl => (
+                        <View key={sl.label} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: sl.color }} />
+                          <View>
+                            <Text style={{ fontFamily: FONT, fontSize: 12, fontWeight: '600', color: C.textMid }}>{sl.label}</Text>
+                            <Text style={{ fontFamily: FONT, fontSize: 11, fontWeight: '700', color: C.textPrime }}>
+                              {sl.value.toFixed(1)}
+                              <Text style={{ color: C.textSub, fontWeight: '400' }}>  {sl.pct}%</Text>
+                            </Text>
+                          </View>
                         </View>
-                      </View>
-                    ))}
+                      ))}
+                    </View>
                   </View>
                 </View>
               </View>
@@ -693,21 +736,21 @@ export default function StatsScreen() {
               <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
                 <SH title="Vitamin C Trend" subtitle="monthly total (mg)" C={C} />
                 <View style={[s.divider, { backgroundColor: C.border }]} />
-                <AreaChart data={mVitC} labels={monthLabels} color={ACCENT.orange} gradId="gVitC" unit="mg" gridColor={gridColor} textColor={chartTextColor} />
+                <AreaChart data={mVitC} labels={monthLabels} color={ACCENT.orange} gradId="gVitC" unit="mg" gridColor={gridColor} textColor={chartTextColor} bgColor={vizBg} />
               </View>
             )}
             {mVitD.some(v => v > 0) && (
               <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
                 <SH title="Vitamin D Trend" subtitle="monthly total (μg)" C={C} />
                 <View style={[s.divider, { backgroundColor: C.border }]} />
-                <AreaChart data={mVitD} labels={monthLabels} color={ACCENT.rose} gradId="gVitD" unit="μg" gridColor={gridColor} textColor={chartTextColor} />
+                <AreaChart data={mVitD} labels={monthLabels} color={ACCENT.rose} gradId="gVitD" unit="μg" gridColor={gridColor} textColor={chartTextColor} bgColor={vizBg} />
               </View>
             )}
             {mVitA.some(v => v > 0) && (
               <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
                 <SH title="Vitamin A Trend" subtitle="monthly total (μg)" C={C} />
                 <View style={[s.divider, { backgroundColor: C.border }]} />
-                <AreaChart data={mVitA} labels={monthLabels} color={ACCENT.amber} gradId="gVitA" unit="μg" gridColor={gridColor} textColor={chartTextColor} />
+                <AreaChart data={mVitA} labels={monthLabels} color={ACCENT.amber} gradId="gVitA" unit="μg" gridColor={gridColor} textColor={chartTextColor} bgColor={vizBg} />
               </View>
             )}
             {(mVitB6.some(v => v > 0) || mVitB12.some(v => v > 0)) && (
@@ -715,10 +758,10 @@ export default function StatsScreen() {
                 <SH title="B Vitamins" subtitle="B6 (mg) · B12 (μg) monthly" C={C} />
                 <View style={[s.divider, { backgroundColor: C.border }]} />
                 {mVitB6.some(v => v > 0) && (
-                  <AreaChart data={mVitB6} labels={monthLabels} color={ACCENT.purple} gradId="gVitB6" unit="mg" height={130} gridColor={gridColor} textColor={chartTextColor} />
+                  <AreaChart data={mVitB6} labels={monthLabels} color={ACCENT.purple} gradId="gVitB6" unit="mg" height={130} gridColor={gridColor} textColor={chartTextColor} bgColor={vizBg} />
                 )}
                 {mVitB12.some(v => v > 0) && (
-                  <AreaChart data={mVitB12} labels={monthLabels} color={ACCENT.blue} gradId="gVitB12" unit="μg" height={130} gridColor={gridColor} textColor={chartTextColor} />
+                  <AreaChart data={mVitB12} labels={monthLabels} color={ACCENT.blue} gradId="gVitB12" unit="μg" height={130} gridColor={gridColor} textColor={chartTextColor} bgColor={vizBg} />
                 )}
                 <Legend items={[
                   ...(mVitB6.some(v => v > 0)  ? [{ color: ACCENT.purple, label: 'B6'  }] : []),
