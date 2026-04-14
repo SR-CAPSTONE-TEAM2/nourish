@@ -22,6 +22,13 @@ const CHART_W = SCREEN_WIDTH - 76
 
 const FONT = Platform.OS === 'ios' ? 'System' : 'sans-serif'
 
+// ─── Dark purple palette ──────────────────────────────────────────────────────
+const DARK_BG       = '#0f0e17'
+const DARK_SURFACE  = '#1a1828'
+const DARK_SURF_HI  = '#211f32'
+const DARK_BORDER   = '#2a2740'
+const DARK_BORDER_HI = '#322f4a'
+
 // ─── Accent palette ───────────────────────────────────────────────────────────
 const ACCENT = {
   orange: '#f97316', blue: '#60a5fa', green: '#34d399',
@@ -131,7 +138,6 @@ function AreaChart({ data, labels, color, gradId, height = 150, unit = '', gridC
   const skipLabel = data.length > 9
 
   return (
-    // Visualization background color — matches second dashboard panel bg
     <View style={{ backgroundColor: bgColor, borderRadius: 12, overflow: 'hidden' }}>
       <Svg width={w} height={h}>
         <Defs>
@@ -214,56 +220,102 @@ function StackedBars({ data, colors, height = 150, gridColor, textColor, bgColor
   )
 }
 
-// ─── Chart: semi-circle gauge (FIXED) ────────────────────────────────────────
-// Fix: removed clamping of fy that caused arc to go outside the path.
-// The semi-circle is a strict 180° arc from left to right, rendered purely
-// with a fixed SVG arc so it never overflows its track.
-function SemiGauge({ value, max, label, sublabel, color, size = 110, surfaceColor, textMuted, borderColor }: {
-  value: number; max: number; label: string; sublabel?: string; color: string; size?: number
+// ─── Chart: semi-circle gauge ─────────────────────────────────────────────────
+// The gauge renders a 180° arc (left→right, sweeping clockwise via the top).
+// The track path goes from the left endpoint to the right endpoint using
+// the "large-arc=0, sweep=1" convention so it arcs through the TOP of the
+// semi-circle. The fill arc follows the same convention but stops at pct×180°.
+//
+// Key fix: both track and fill use the SAME arc direction (sweep-flag=1,
+// which in SVG means clockwise). The endpoint for the fill arc is computed
+// using standard trig where 0° = right, 180° = left in math space — but
+// in SVG y is flipped, so sin is negated.
+function SemiGauge({
+  value, max, label, sublabel, color, size = 110,
+  surfaceColor, textMuted, borderColor,
+}: {
+  value: number; max: number; label: string; sublabel?: string
+  color: string; size?: number
   surfaceColor: string; textMuted: string; borderColor: string
 }) {
-  const r = size * 0.36
-  const cx = size / 2
-  // Place cy so the arc sits in the upper ~60% of the SVG height
-  const cy = size * 0.58
-  const sw = 9
-  const pct = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0
+  const r    = size * 0.36
+  const cx   = size / 2
+  const cy   = size * 0.60   // baseline for the arc diameter (flat edge)
+  const sw   = 9
+  const pct  = max > 0 ? Math.min(1, Math.max(0, value / max)) : 0
 
-  // Track: always a full 180° arc from left to right
-  const startX = cx - r
-  const startY = cy
-  const endX = cx + r
-  const endY = cy
-  const trackPath = `M ${startX.toFixed(1)} ${startY.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${endX.toFixed(1)} ${endY.toFixed(1)}`
+  // The two endpoints of the full 180° arc sit on a horizontal diameter at cy.
+  // Left endpoint = (cx - r, cy), right endpoint = (cx + r, cy).
+  // The arc sweeps CLOCKWISE (sweep-flag=1) from left→right through the top,
+  // which means large-arc=0 (it's exactly 180°, but SVG requires large-arc=1
+  // when sweep is exactly π, so we use a tiny epsilon to stay at 180° safely —
+  // actually for a pure 180° arc we must use large-arc=1 with sweep=1).
+  const lx = cx - r, ly = cy   // left point
+  const rx = cx + r, ry = cy   // right point
 
-  // Fill: sweep from startX,startY clockwise by pct * 180°
-  // Angle: starts at 180° (left), goes to 0° (right) — but in SVG coords,
-  // the arc goes counter-clockwise from the left endpoint.
-  // We draw from left endpoint, sweeping pct * π radians clockwise (sweep-flag=1).
+  // Full track: left → right, clockwise through the top (large-arc=1, sweep=1)
+  const trackPath =
+    `M ${lx.toFixed(2)} ${ly.toFixed(2)} ` +
+    `A ${r.toFixed(2)} ${r.toFixed(2)} 0 1 1 ${rx.toFixed(2)} ${ry.toFixed(2)}`
+
+  // Fill arc: same start (lx, ly), sweeps pct×180° clockwise.
+  // In standard math coords (origin at cx,cy, y up):
+  //   left point is at angle 180°
+  //   the arc sweeps CW toward 0° (right)
+  //   so end angle (math) = 180° - pct×180°
+  // In SVG coords (y is flipped), the point at math-angle θ is:
+  //   x = cx + r·cos(θ)
+  //   y = cy - r·sin(θ)   ← minus because SVG y-axis points down
   let fillPath = ''
-  if (pct > 0.005) {
-    // Angle from the left of the arc: 0 at left, π at right
-    const sweepAngle = pct * Math.PI
-    // In standard math coords with origin at cx,cy: left = π, so our angle is π - sweepAngle
-    const angle = Math.PI - sweepAngle
-    const fx = cx + r * Math.cos(angle)
-    const fy = cy - r * Math.sin(angle) // subtract because SVG y-axis is flipped
-    const largeArc = pct > 0.5 ? 1 : 0
-    fillPath = `M ${startX.toFixed(1)} ${startY.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 ${largeArc} 1 ${fx.toFixed(1)} ${fy.toFixed(1)}`
+  if (pct > 0.001) {
+    const endAngleRad = Math.PI * (1 - pct) // math angle of end point
+    const ex = cx + r * Math.cos(endAngleRad)
+    const ey = cy - r * Math.sin(endAngleRad)  // SVG y flip
+    // large-arc=1 only when the arc spans more than 180°; here max is 180°,
+    // so large-arc=1 only at pct=1 (full semicircle).
+    const largeArc = pct >= 1 ? 1 : 0
+    fillPath =
+      `M ${lx.toFixed(2)} ${ly.toFixed(2)} ` +
+      `A ${r.toFixed(2)} ${r.toFixed(2)} 0 ${largeArc} 1 ${ex.toFixed(2)} ${ey.toFixed(2)}`
   }
 
-  const displayVal = value >= 1000 ? `${(value / 1000).toFixed(1)}k` : String(Math.round(value))
-  const svgH = size * 0.72
+  const displayVal = value >= 1000
+    ? `${(value / 1000).toFixed(1)}k`
+    : String(Math.round(value))
+
+  // SVG height: just enough to show the arc above cy plus a little padding.
+  const svgH = cy + sw / 2 + 4
 
   return (
     <View style={{ alignItems: 'center', flex: 1, minWidth: 80 }}>
       <Svg width={size} height={svgH}>
+        {/* Track */}
         <Path d={trackPath} stroke={borderColor} strokeWidth={sw} fill="none" strokeLinecap="round" />
-        {fillPath ? <Path d={fillPath} stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round" /> : null}
-        <SvgText x={cx} y={cy - 2} fontSize="17" fontWeight="700" fontFamily={FONT} fill={color} textAnchor="middle">{displayVal}</SvgText>
-        {sublabel && <SvgText x={cx} y={cy + 13} fontSize="9" fontFamily={FONT} fill={textMuted} textAnchor="middle">{sublabel}</SvgText>}
+        {/* Fill */}
+        {fillPath ? (
+          <Path d={fillPath} stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round" />
+        ) : null}
+        {/* Value label centered on the arc */}
+        <SvgText
+          x={cx} y={cy - r * 0.18}
+          fontSize="17" fontWeight="700" fontFamily={FONT}
+          fill={color} textAnchor="middle"
+        >
+          {displayVal}
+        </SvgText>
+        {sublabel && (
+          <SvgText
+            x={cx} y={cy - r * 0.18 + 15}
+            fontSize="9" fontFamily={FONT}
+            fill={textMuted} textAnchor="middle"
+          >
+            {sublabel}
+          </SvgText>
+        )}
       </Svg>
-      <Text style={{ fontFamily: FONT, fontSize: 11, color: textMuted, textAlign: 'center', marginTop: -4 }}>{label}</Text>
+      <Text style={{ fontFamily: FONT, fontSize: 11, color: textMuted, textAlign: 'center', marginTop: 2 }}>
+        {label}
+      </Text>
     </View>
   )
 }
@@ -287,7 +339,10 @@ function DonutChart({ slices, size = 140, surfaceColor, textPrime, textMuted }: 
     const sweep = (sl.value / total) * 2 * Math.PI
     const x1 = cx + r * Math.cos(angle), y1 = cy + r * Math.sin(angle)
     const x2 = cx + r * Math.cos(angle + sweep), y2 = cy + r * Math.sin(angle + sweep)
-    const p = { path: `M ${cx} ${cy} L ${x1.toFixed(1)} ${y1.toFixed(1)} A ${r} ${r} 0 ${sweep > Math.PI ? 1 : 0} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} Z`, color: sl.color, label: sl.label, pct: sl.pct }
+    const p = {
+      path: `M ${cx} ${cy} L ${x1.toFixed(1)} ${y1.toFixed(1)} A ${r} ${r} 0 ${sweep > Math.PI ? 1 : 0} 1 ${x2.toFixed(1)} ${y2.toFixed(1)} Z`,
+      color: sl.color, label: sl.label, pct: sl.pct,
+    }
     angle += sweep
     return p
   })
@@ -409,26 +464,22 @@ export default function StatsScreen() {
   const [macroTab, setMacroTab] = useState<MacroTab>('calories')
   const [rangeTab, setRangeTab] = useState<RangeTab>('monthly')
 
-  // ── Dark mode background matches second stats file (#181818)
-  const darkBg = '#181818'
-  const surfaceHi = isDark ? '#212121' : '#F5F5F5'
-  const borderHi = isDark ? '#2a2a2a' : '#E0E0E0'
-
+  // ── Dark purple color palette
   const C = {
-    bg: isDark ? darkBg : colors.background,
-    surface: isDark ? '#1e1e1e' : colors.card,
-    surfaceHi,
-    border: isDark ? '#252525' : (colors.border ?? '#E5E5E5'),
-    borderHi,
+    bg:        isDark ? DARK_BG        : colors.background,
+    surface:   isDark ? DARK_SURFACE   : colors.card,
+    surfaceHi: isDark ? DARK_SURF_HI   : '#F5F5F5',
+    border:    isDark ? DARK_BORDER    : (colors.border ?? '#E5E5E5'),
+    borderHi:  isDark ? DARK_BORDER_HI : '#E0E0E0',
     textPrime: colors.text,
-    textSub: colors.textMuted,
-    textMid: colors.textSecondary,
+    textSub:   colors.textMuted,
+    textMid:   colors.textSecondary,
   }
 
-  // Visualization panel background — same surfaceHi tint as second dashboard
-  const vizBg = surfaceHi
-  const gridColor = isDark ? '#1c1c1c' : '#E8E8E8'
-  const chartTextColor = isDark ? '#5a5a5a' : '#999999'
+  const vizBg        = C.surfaceHi
+  const gridColor    = isDark ? DARK_BORDER    : '#E8E8E8'
+  const gaugeTrack   = isDark ? DARK_BORDER_HI : '#E0E0E0'
+  const chartTextColor = isDark ? '#5a5570' : '#999999'
 
   useEffect(() => {
     const load = async () => {
@@ -518,7 +569,7 @@ export default function StatsScreen() {
   const hasVitaminData = mVitC.some(v => v > 0) || mVitD.some(v => v > 0) || mVitA.some(v => v > 0)
 
   // ── Period totals ──────────────────────────────────────────────────────────
-  const thisWeekIdx = weeks8.length - 1
+  const thisWeekIdx  = weeks8.length - 1
   const thisMonthIdx = months12.length - 1
 
   const thisWeekCal   = wCal[thisWeekIdx]   ?? 0
@@ -546,7 +597,7 @@ export default function StatsScreen() {
     values: [mVitC[i], mVitD[i], mVitA[i], mVitE[i], mVitK[i]],
   }))
 
-  // ── Donut: most recent month with vitamin data ─────────────────────────────
+  // ── Donut ──────────────────────────────────────────────────────────────────
   const vitMonthIdx = [...months12.keys()].reverse().find(i =>
     mVitC[i] > 0 || mVitD[i] > 0 || mVitA[i] > 0
   ) ?? -1
@@ -604,7 +655,6 @@ export default function StatsScreen() {
         <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
           <SH title="Period Totals" subtitle="calories · protein · carbs · fat" C={C} />
           <View style={[s.divider, { backgroundColor: C.border }]} />
-
           <Text style={{ fontFamily: FONT, fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.8 }}>This Week</Text>
           <TotalsRow items={[
             { label: 'Calories', value: thisWeekCal,  unit: 'kcal', color: ACCENT.orange },
@@ -612,9 +662,7 @@ export default function StatsScreen() {
             { label: 'Carbs',    value: thisWeekCarb, unit: 'g',    color: ACCENT.purple },
             { label: 'Fat',      value: thisWeekFat,  unit: 'g',    color: ACCENT.blue   },
           ]} C={C} />
-
           <View style={[s.divider, { backgroundColor: C.border }]} />
-
           <Text style={{ fontFamily: FONT, fontSize: 11, color: C.textSub, textTransform: 'uppercase', letterSpacing: 0.8 }}>This Month</Text>
           <TotalsRow items={[
             { label: 'Calories', value: thisMonthCal,  unit: 'kcal', color: ACCENT.orange },
@@ -628,13 +676,12 @@ export default function StatsScreen() {
         <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
           <SH title="This Month vs. Goal" subtitle="rough monthly targets" C={C} />
           <View style={[s.divider, { backgroundColor: C.border }]} />
-          {/* Gauge background panel — matches second dashboard viz bg */}
           <View style={{ backgroundColor: vizBg, borderRadius: 12, padding: 12 }}>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 8 }}>
-              <SemiGauge value={thisMonthCal}  max={MONTHLY_GOALS.cal}  label="Calories" sublabel="kcal" color={ACCENT.orange} surfaceColor={vizBg} textMuted={C.textSub} borderColor={isDark ? '#2a2a2a' : '#E0E0E0'} />
-              <SemiGauge value={thisMonthPro}  max={MONTHLY_GOALS.pro}  label="Protein"  sublabel="g"    color={ACCENT.green}  surfaceColor={vizBg} textMuted={C.textSub} borderColor={isDark ? '#2a2a2a' : '#E0E0E0'} />
-              <SemiGauge value={thisMonthCarb} max={MONTHLY_GOALS.carb} label="Carbs"    sublabel="g"    color={ACCENT.purple} surfaceColor={vizBg} textMuted={C.textSub} borderColor={isDark ? '#2a2a2a' : '#E0E0E0'} />
-              <SemiGauge value={thisMonthFat}  max={MONTHLY_GOALS.fat}  label="Fat"      sublabel="g"    color={ACCENT.blue}   surfaceColor={vizBg} textMuted={C.textSub} borderColor={isDark ? '#2a2a2a' : '#E0E0E0'} />
+              <SemiGauge value={thisMonthCal}  max={MONTHLY_GOALS.cal}  label="Calories" sublabel="kcal" color={ACCENT.orange} surfaceColor={vizBg} textMuted={C.textSub} borderColor={gaugeTrack} />
+              <SemiGauge value={thisMonthPro}  max={MONTHLY_GOALS.pro}  label="Protein"  sublabel="g"    color={ACCENT.green}  surfaceColor={vizBg} textMuted={C.textSub} borderColor={gaugeTrack} />
+              <SemiGauge value={thisMonthCarb} max={MONTHLY_GOALS.carb} label="Carbs"    sublabel="g"    color={ACCENT.purple} surfaceColor={vizBg} textMuted={C.textSub} borderColor={gaugeTrack} />
+              <SemiGauge value={thisMonthFat}  max={MONTHLY_GOALS.fat}  label="Fat"      sublabel="g"    color={ACCENT.blue}   surfaceColor={vizBg} textMuted={C.textSub} borderColor={gaugeTrack} />
             </View>
           </View>
         </View>
@@ -643,18 +690,15 @@ export default function StatsScreen() {
         <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
           <SH title="Macro Trends" C={C} />
           <View style={[s.divider, { backgroundColor: C.border }]} />
-
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TabBtn label="Weekly"  active={rangeTab === 'weekly'}  color={ACCENT.teal} onPress={() => setRangeTab('weekly')}  C={C} />
             <TabBtn label="Monthly" active={rangeTab === 'monthly'} color={ACCENT.teal} onPress={() => setRangeTab('monthly')} C={C} />
           </View>
-
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {macroTabDef.map(t => (
               <TabBtn key={t.key} label={t.label} active={macroTab === t.key} color={t.color} onPress={() => setMacroTab(t.key)} C={C} />
             ))}
           </ScrollView>
-
           <AreaChart
             data={rangeTab === 'weekly' ? activeWeeklyData : activeMonthlyData}
             labels={rangeTab === 'weekly' ? weekLabels : monthLabels}
@@ -709,7 +753,6 @@ export default function StatsScreen() {
               <View style={[s.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
                 <SH title="Vitamin Distribution" subtitle={`${monthLabels[vitMonthIdx]} — most recent`} C={C} />
                 <View style={[s.divider, { backgroundColor: C.border }]} />
-                {/* Donut background */}
                 <View style={{ backgroundColor: vizBg, borderRadius: 12, padding: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
                     <DonutChart slices={vitDonutSlices} size={150} surfaceColor={vizBg} textPrime={C.textPrime} textMuted={C.textSub} />

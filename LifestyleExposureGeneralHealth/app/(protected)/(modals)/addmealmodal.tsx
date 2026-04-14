@@ -73,6 +73,13 @@ const PAGE_SIZE = 20
 const DEBOUNCE = 350
 const DEFAULT_MEAL_TYPES = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
 
+// ─── Dark purple theme ────────────────────────────────────────────────────────
+const DARK_BG = '#0f0e17'
+const DARK_SURFACE = '#1a1828'
+const DARK_SURFACE_HI = '#211f32'
+const DARK_BORDER = '#2a2740'
+const DARK_BORDER_HI = '#322f4a'
+
 // ─── Color helpers ────────────────────────────────────────────────────────────
 
 const ACCENT = {
@@ -233,8 +240,18 @@ function PortionPicker({ pending, onChange, onConfirm, onCancel, accentColor, is
   const carbs = scaledRound(pending.item.carbs, grams)
   const fat = scaledRound(pending.item.fat, grams)
 
+  const wrapBg = isDark ? DARK_SURFACE : '#F5F5F5'
+  const wrapBorder = isDark ? DARK_BORDER : '#E0E0E0'
+  const chipBg = isDark ? DARK_SURFACE_HI : '#EBEBEB'
+  const chipBorder = isDark ? DARK_BORDER_HI : '#D0D0D0'
+  const qtyBg = isDark ? DARK_BORDER : '#E0E0E0'
+  const inputBg = isDark ? DARK_SURFACE_HI : '#EBEBEB'
+  const inputBorder = isDark ? DARK_BORDER_HI : '#D0D0D0'
+  const macroPillBg = isDark ? DARK_BG : '#EBEBEB'
+  const macroPillBorder = isDark ? DARK_BORDER : '#D8D8D8'
+
   return (
-    <View style={[pp.wrap, { backgroundColor: isDark ? '#1e1e1e' : '#F5F5F5', borderColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}>
+    <View style={[pp.wrap, { backgroundColor: wrapBg, borderColor: wrapBorder }]}>
       <Text style={[pp.name, { color: colors.text }]} numberOfLines={2}>{baseName(pending.item.ingredient_name)}</Text>
 
       <Text style={[pp.label, { color: colors.textMuted }]}>Portion size</Text>
@@ -244,7 +261,7 @@ function PortionPicker({ pending, onChange, onConfirm, onCancel, accentColor, is
             key={i}
             style={[
               pp.chip,
-              { borderColor: isDark ? '#2e2e2e' : '#D0D0D0', backgroundColor: isDark ? '#242424' : '#EBEBEB' },
+              { borderColor: chipBorder, backgroundColor: chipBg },
               pending.portionIdx === i && { borderColor: accentColor, backgroundColor: accentColor + '18' },
             ]}
             onPress={() => onChange({ ...pending, portionIdx: i })}
@@ -261,7 +278,7 @@ function PortionPicker({ pending, onChange, onConfirm, onCancel, accentColor, is
       <Text style={[pp.label, { color: colors.textMuted }]}>How many?</Text>
       <View style={pp.qtyRow}>
         <TouchableOpacity
-          style={[pp.qtyBtn, { backgroundColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}
+          style={[pp.qtyBtn, { backgroundColor: qtyBg }]}
           onPress={() => {
             const cur = parseFloat(pending.multiplier)
             onChange({ ...pending, multiplier: String(isNaN(cur) ? 1 : Math.max(0.25, parseFloat((cur - 0.25).toFixed(2)))) })
@@ -270,14 +287,14 @@ function PortionPicker({ pending, onChange, onConfirm, onCancel, accentColor, is
           <Text style={[pp.qtyBtnText, { color: colors.textSecondary }]}>−</Text>
         </TouchableOpacity>
         <TextInput
-          style={[pp.qtyInput, { backgroundColor: isDark ? '#242424' : '#EBEBEB', borderColor: isDark ? '#333' : '#D0D0D0', color: colors.text }]}
+          style={[pp.qtyInput, { backgroundColor: inputBg, borderColor: inputBorder, color: colors.text }]}
           value={pending.multiplier}
           onChangeText={v => onChange({ ...pending, multiplier: v })}
           keyboardType="decimal-pad"
           selectTextOnFocus
         />
         <TouchableOpacity
-          style={[pp.qtyBtn, { backgroundColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}
+          style={[pp.qtyBtn, { backgroundColor: qtyBg }]}
           onPress={() => {
             const cur = parseFloat(pending.multiplier)
             onChange({ ...pending, multiplier: String(isNaN(cur) ? 1 : parseFloat((cur + 0.25).toFixed(2))) })
@@ -293,7 +310,7 @@ function PortionPicker({ pending, onChange, onConfirm, onCancel, accentColor, is
           [kcal, 'kcal', '#f97316'], [protein + 'g', 'protein', '#34d399'],
           [carbs + 'g', 'carbs', '#a78bfa'], [fat + 'g', 'fat', '#60a5fa'],
         ].map(([val, lbl, col]) => (
-          <View key={lbl as string} style={[pp.macroPill, { backgroundColor: isDark ? '#212121' : '#EBEBEB', borderColor: isDark ? '#2a2a2a' : '#D8D8D8' }]}>
+          <View key={lbl as string} style={[pp.macroPill, { backgroundColor: macroPillBg, borderColor: macroPillBorder }]}>
             <Text style={[pp.macroVal, { color: col as string }]}>{val}</Text>
             <Text style={[pp.macroLabel, { color: colors.textMuted }]}>{lbl}</Text>
           </View>
@@ -302,7 +319,7 @@ function PortionPicker({ pending, onChange, onConfirm, onCancel, accentColor, is
 
       <View style={pp.actions}>
         <TouchableOpacity
-          style={[pp.cancelBtn, { backgroundColor: isDark ? '#242424' : '#E8E8E8', borderColor: isDark ? '#2e2e2e' : '#D0D0D0' }]}
+          style={[pp.cancelBtn, { backgroundColor: inputBg, borderColor: chipBorder }]}
           onPress={onCancel}
         >
           <Text style={[pp.cancelText, { color: colors.textMuted }]}>Cancel</Text>
@@ -341,15 +358,15 @@ const pp = StyleSheet.create({
 
 // ─── Meal Type Card ───────────────────────────────────────────────────────────
 
-function MealTypeCard({ type, color, emoji, isSelected, onPress, colors }: {
+function MealTypeCard({ type, color, emoji, isSelected, onPress, colors, isDark }: {
   type: string; color: string; emoji: string; isSelected: boolean; onPress: () => void
-  colors: Record<string, string>
+  colors: Record<string, string>; isDark: boolean
 }) {
   return (
     <TouchableOpacity
       style={[
         mtc.card,
-        { backgroundColor: colors.inputBackground, borderColor: colors.border },
+        { backgroundColor: isDark ? DARK_SURFACE_HI : colors.inputBackground, borderColor: isDark ? DARK_BORDER : colors.border },
         isSelected && { borderColor: color, backgroundColor: color + '18' },
       ]}
       onPress={onPress}
@@ -557,28 +574,30 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
 
   const accentColor = mealType ? getMealTypeColor(mealType, mealTypes.indexOf(mealType)) : ACCENT.orange
 
-  // ── Theming shortcuts
-  const sheetBg = isDark ? '#181818' : '#FFFFFF'
-  const dropdownBg = isDark ? '#1e1e1e' : '#F8F8F8'
-  const selectedRowBg = isDark ? '#212121' : '#F2F2F2'
-  const macroPillBg = isDark ? '#212121' : '#F0F0F0'
+  // ── Theming shortcuts — all use dark purple palette in dark mode
+  const sheetBg = isDark ? DARK_SURFACE : '#FFFFFF'
+  const dropdownBg = isDark ? DARK_SURFACE_HI : '#F8F8F8'
+  const selectedRowBg = isDark ? DARK_BG : '#F2F2F2'
+  const macroPillBg = isDark ? DARK_BG : '#F0F0F0'
+  const searchBg = isDark ? DARK_BG : colors.background
+  const overlayColor = isDark ? 'rgba(8,7,20,0.75)' : 'rgba(0,0,0,0.4)'
 
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       <TouchableWithoutFeedback onPress={onClose}>
-        <Animated.View style={[ms.overlay, { opacity: overlayAnim, backgroundColor: colors.overlay }]} />
+        <Animated.View style={[ms.overlay, { opacity: overlayAnim, backgroundColor: overlayColor }]} />
       </TouchableWithoutFeedback>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={ms.kv} pointerEvents="box-none">
-        <Animated.View style={[ms.sheet, { transform: [{ translateY: slideAnim }], backgroundColor: sheetBg, borderTopColor: colors.border }]}>
-          <View style={[ms.handle, { backgroundColor: isDark ? '#303030' : '#D0D0D0' }]} />
+        <Animated.View style={[ms.sheet, { transform: [{ translateY: slideAnim }], backgroundColor: sheetBg, borderTopColor: isDark ? DARK_BORDER : colors.border }]}>
+          <View style={[ms.handle, { backgroundColor: isDark ? DARK_BORDER_HI : '#D0D0D0' }]} />
 
           {/* Header */}
           <View style={ms.header}>
             {step === 'ingredients' && (
               <TouchableOpacity
                 onPress={() => { setStep('type'); setPending(null) }}
-                style={[ms.iconBtn, { backgroundColor: colors.background }]}
+                style={[ms.iconBtn, { backgroundColor: isDark ? DARK_BG : colors.background }]}
               >
                 <Text style={[ms.iconBtnText, { color: colors.textMuted }]}>←</Text>
               </TouchableOpacity>
@@ -591,7 +610,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                 </View>
               )}
             </View>
-            <TouchableOpacity onPress={onClose} style={[ms.iconBtn, { backgroundColor: colors.background }]}>
+            <TouchableOpacity onPress={onClose} style={[ms.iconBtn, { backgroundColor: isDark ? DARK_BG : colors.background }]}>
               <Text style={[ms.iconBtnText, { color: colors.textMuted }]}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -614,11 +633,12 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                     isSelected={mealType === type}
                     onPress={() => setMealType(type)}
                     colors={colors}
+                    isDark={isDark}
                   />
                 ))}
               </ScrollView>
               <TouchableOpacity
-                style={[ms.primaryBtn, !mealType ? [ms.primaryBtnDis, { backgroundColor: colors.background }] : { backgroundColor: accentColor }]}
+                style={[ms.primaryBtn, !mealType ? [ms.primaryBtnDis, { backgroundColor: isDark ? DARK_BG : colors.background }] : { backgroundColor: accentColor }]}
                 onPress={() => mealType && setStep('ingredients')}
                 disabled={!mealType}
               >
@@ -631,7 +651,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
           {step === 'ingredients' && (
             <View style={ms.ingWrap}>
               {!pending && (
-                <View style={[ms.searchBox, { backgroundColor: colors.background, borderColor: query ? accentColor + '99' : colors.border }]}>
+                <View style={[ms.searchBox, { backgroundColor: searchBg, borderColor: query ? accentColor + '99' : (isDark ? DARK_BORDER : colors.border) }]}>
                   <Text style={ms.searchIcon}>🔍</Text>
                   <TextInput
                     style={[ms.searchInput, { color: colors.text }]}
@@ -665,7 +685,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
               )}
 
               {!pending && results.length > 0 && (
-                <View style={[ms.dropdown, { backgroundColor: dropdownBg, borderColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}>
+                <View style={[ms.dropdown, { backgroundColor: dropdownBg, borderColor: isDark ? DARK_BORDER : '#E0E0E0' }]}>
                   <FlatList
                     data={groupByBaseName(results)}
                     keyExtractor={g => g.base}
@@ -694,7 +714,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                           {isExpanded && group.items.map(item => (
                             <TouchableOpacity
                               key={item.fdc_id}
-                              style={[ms.dropdownItem, ms.variantRow, { backgroundColor: isDark ? '#1c1c1c' : '#EFEFEF', borderLeftColor: isDark ? '#2e2e2e' : '#DADADA' }]}
+                              style={[ms.dropdownItem, ms.variantRow, { backgroundColor: isDark ? DARK_BG : '#EFEFEF', borderLeftColor: isDark ? DARK_BORDER : '#DADADA' }]}
                               onPress={() => { selectFood(item); setExpandedGroup(null) }}
                             >
                               <View style={ms.dropdownMain}>
@@ -711,10 +731,10 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                         </View>
                       )
                     }}
-                    ItemSeparatorComponent={() => <View style={[ms.sep, { backgroundColor: isDark ? '#252525' : '#E8E8E8' }]} />}
+                    ItemSeparatorComponent={() => <View style={[ms.sep, { backgroundColor: isDark ? DARK_BORDER : '#E8E8E8' }]} />}
                     ListFooterComponent={
                       hasMore ? (
-                        <TouchableOpacity style={[ms.loadMoreBtn, { borderTopColor: colors.border }]} onPress={loadMore} disabled={loadingMore}>
+                        <TouchableOpacity style={[ms.loadMoreBtn, { borderTopColor: isDark ? DARK_BORDER : colors.border }]} onPress={loadMore} disabled={loadingMore}>
                           {loadingMore
                             ? <ActivityIndicator size="small" color={colors.textMuted} />
                             : <Text style={[ms.loadMoreText, { color: colors.textMuted }]}>Load more results…</Text>}
@@ -737,7 +757,7 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                     <Text style={[ms.emptyHint, { color: colors.textMuted }]}>Search above to add ingredients.</Text>
                   ) : (
                     selected.map(item => (
-                      <View key={item.fdc_id} style={[ms.selectedRow, { backgroundColor: selectedRowBg, borderColor: colors.border }]}>
+                      <View key={item.fdc_id} style={[ms.selectedRow, { backgroundColor: selectedRowBg, borderColor: isDark ? DARK_BORDER : colors.border }]}>
                         <View style={ms.selectedInfo}>
                           <Text style={[ms.selectedName, { color: colors.text }]} numberOfLines={2}>{baseName(item.ingredient_name)}</Text>
                           <Text style={[ms.selectedDetail, { color: colors.textMuted }]}>
@@ -749,14 +769,14 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                         </View>
                         <View style={ms.qtyRow}>
                           <TouchableOpacity
-                            style={[ms.qtyBtn, { backgroundColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}
+                            style={[ms.qtyBtn, { backgroundColor: isDark ? DARK_BORDER : '#E0E0E0' }]}
                             onPress={() => changeQty(item.fdc_id, -1)}
                           >
                             <Text style={[ms.qtyBtnText, { color: colors.textSecondary }]}>−</Text>
                           </TouchableOpacity>
                           <Text style={[ms.qtyNum, { color: colors.text }]}>{item.qty}</Text>
                           <TouchableOpacity
-                            style={[ms.qtyBtn, { backgroundColor: isDark ? '#2a2a2a' : '#E0E0E0' }]}
+                            style={[ms.qtyBtn, { backgroundColor: isDark ? DARK_BORDER : '#E0E0E0' }]}
                             onPress={() => changeQty(item.fdc_id, 1)}
                           >
                             <Text style={[ms.qtyBtnText, { color: colors.textSecondary }]}>+</Text>
@@ -772,13 +792,13 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
               )}
 
               {!pending && selected.length > 0 && (
-                <View style={[ms.footer, { borderTopColor: colors.border }]}>
+                <View style={[ms.footer, { borderTopColor: isDark ? DARK_BORDER : colors.border }]}>
                   <View style={ms.macroRow}>
                     {[
                       [totalCalories, 'kcal', '#f97316'], [totalProtein + 'g', 'protein', '#34d399'],
                       [totalCarbs + 'g', 'carbs', '#a78bfa'], [totalFat + 'g', 'fat', '#60a5fa'],
                     ].map(([val, lbl, col]) => (
-                      <View key={lbl as string} style={[ms.macroPill, { backgroundColor: macroPillBg, borderColor: colors.border }]}>
+                      <View key={lbl as string} style={[ms.macroPill, { backgroundColor: macroPillBg, borderColor: isDark ? DARK_BORDER : colors.border }]}>
                         <Text style={[ms.macroVal, { color: col as string }]}>{val}</Text>
                         <Text style={[ms.macroLabel, { color: colors.textMuted }]}>{lbl}</Text>
                       </View>
@@ -786,10 +806,10 @@ export default function AddMealModal({ visible, onClose, onSuccess }: Props) {
                   </View>
                   {(totalVitC > 0 || totalVitD > 0 || totalVitA > 0) && (
                     <View style={ms.vitPreviewRow}>
-                      {totalVitC > 0 && <Text style={[ms.vitPreviewTag, { color: colors.textSecondary, backgroundColor: macroPillBg, borderColor: colors.border }]}>C: {totalVitC.toFixed(1)}mg</Text>}
-                      {totalVitD > 0 && <Text style={[ms.vitPreviewTag, { color: colors.textSecondary, backgroundColor: macroPillBg, borderColor: colors.border }]}>D: {totalVitD.toFixed(1)}μg</Text>}
-                      {totalVitA > 0 && <Text style={[ms.vitPreviewTag, { color: colors.textSecondary, backgroundColor: macroPillBg, borderColor: colors.border }]}>A: {totalVitA.toFixed(0)}μg</Text>}
-                      {totalVitE > 0 && <Text style={[ms.vitPreviewTag, { color: colors.textSecondary, backgroundColor: macroPillBg, borderColor: colors.border }]}>E: {totalVitE.toFixed(1)}mg</Text>}
+                      {totalVitC > 0 && <Text style={[ms.vitPreviewTag, { color: colors.textSecondary, backgroundColor: macroPillBg, borderColor: isDark ? DARK_BORDER : colors.border }]}>C: {totalVitC.toFixed(1)}mg</Text>}
+                      {totalVitD > 0 && <Text style={[ms.vitPreviewTag, { color: colors.textSecondary, backgroundColor: macroPillBg, borderColor: isDark ? DARK_BORDER : colors.border }]}>D: {totalVitD.toFixed(1)}μg</Text>}
+                      {totalVitA > 0 && <Text style={[ms.vitPreviewTag, { color: colors.textSecondary, backgroundColor: macroPillBg, borderColor: isDark ? DARK_BORDER : colors.border }]}>A: {totalVitA.toFixed(0)}μg</Text>}
+                      {totalVitE > 0 && <Text style={[ms.vitPreviewTag, { color: colors.textSecondary, backgroundColor: macroPillBg, borderColor: isDark ? DARK_BORDER : colors.border }]}>E: {totalVitE.toFixed(1)}mg</Text>}
                     </View>
                   )}
                   {submitError && <Text style={ms.errorText}>{submitError}</Text>}

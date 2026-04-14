@@ -33,6 +33,13 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_WIDTH = SCREEN_WIDTH - 80;
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// ─── Dark purple palette ──────────────────────────────────────────────────────
+const DARK_BG       = '#0f0e17'   // main background
+const DARK_SURFACE  = '#1a1828'   // card / panel surface
+const DARK_SURF_HI  = '#211f32'   // elevated surface, chart bg
+const DARK_BORDER   = '#2a2740'   // subtle border
+const DARK_BORDER_HI = '#322f4a'  // stronger border
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ScheduleEntry {
@@ -253,7 +260,7 @@ function NextMealCard({ entry, C, isDark, onLog, isLogged }: {
   };
 
   return (
-    <View style={[nextStyles.card, { backgroundColor: isDark ? '#1A1A2E' : '#F9F5FF', borderColor: accent + '44' }]}>
+    <View style={[nextStyles.card, { backgroundColor: isDark ? DARK_SURF_HI : '#F9F5FF', borderColor: accent + '44' }]}>
       <View style={nextStyles.pill}>
         <View style={[nextStyles.pillDot, { backgroundColor: accent }]} />
         <Text style={[nextStyles.pillText, { color: accent }]}>Next Up</Text>
@@ -382,7 +389,7 @@ function TodaySchedulePanel({ schedule, onGoToSchedule, onLogMeal, isMealLogged,
   );
 }
 
-// ─── Expandable Meal Card (date-grouped) ──────────────────────────────────────
+// ─── Expandable Meal Card ─────────────────────────────────────────────────────
 
 function MealCard({ meal, C }: { meal: MealWithItems; C: Record<string, string> }) {
   const [expanded, setExpanded] = React.useState(false);
@@ -508,27 +515,23 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'calories' | 'weight' | 'protein' | 'macros'>('calories');
   const [showAddMeal, setShowAddMeal] = useState(false);
 
-  // ── Dark mode background: matches second file's #181818
-  const darkBg = '#181818';
-  const surfaceHi = isDark ? '#212121' : '#F5F5F5';
-  const borderHi = isDark ? '#2a2a2a' : '#E0E0E0';
-
+  // ── Color palette — dark purple in dark mode
   const C = {
-    bg: isDark ? darkBg : colors.background,
-    surface: isDark ? '#1e1e1e' : colors.card,
-    surfaceHi,
-    border: isDark ? '#252525' : (colors.border ?? '#E5E5E5'),
-    borderHi,
+    bg:        isDark ? DARK_BG       : colors.background,
+    surface:   isDark ? DARK_SURFACE  : colors.card,
+    surfaceHi: isDark ? DARK_SURF_HI  : '#F5F5F5',
+    border:    isDark ? DARK_BORDER   : (colors.border ?? '#E5E5E5'),
+    borderHi:  isDark ? DARK_BORDER_HI : '#E0E0E0',
     textPrime: colors.text,
-    textSub: colors.textMuted,
-    textMid: colors.textSecondary,
-    orange: '#f97316',
-    blue: '#60a5fa',
-    green: '#34d399',
-    purple: '#8B5CF6',
-    rose: '#fb7185',
-    amber: '#fbbf24',
-    overlayColor: isDark ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.4)',
+    textSub:   colors.textMuted,
+    textMid:   colors.textSecondary,
+    orange:  '#f97316',
+    blue:    '#60a5fa',
+    green:   '#34d399',
+    purple:  '#8B5CF6',
+    rose:    '#fb7185',
+    amber:   '#fbbf24',
+    overlayColor: isDark ? 'rgba(8,7,20,0.75)' : 'rgba(0,0,0,0.4)',
   };
 
   // ─── Data fetchers ──────────────────────────────────────────────────────────
@@ -685,14 +688,14 @@ export default function Dashboard() {
     datasets: [{ data: data.map(d => (d as any)[key] ?? 0) }],
   });
 
-  // Chart background matches C.surfaceHi — same as second dashboard
+  // Chart background matches C.surfaceHi
   const baseChartConfig = {
     backgroundGradientFrom: C.surfaceHi,
     backgroundGradientTo: C.surfaceHi,
     decimalPlaces: 0,
     color: (opacity = 1) => isDark ? `rgba(242,242,242,${opacity})` : `rgba(30,30,30,${opacity})`,
-    labelColor: (opacity = 1) => isDark ? `rgba(90,90,90,${opacity})` : `rgba(100,100,100,${opacity})`,
-    propsForBackgroundLines: { stroke: isDark ? '#1f1f1f' : '#E5E5E7' },
+    labelColor: (opacity = 1) => isDark ? `rgba(110,100,160,${opacity})` : `rgba(100,100,100,${opacity})`,
+    propsForBackgroundLines: { stroke: isDark ? DARK_BORDER : '#E5E5E7' },
     propsForDots: { r: '3', strokeWidth: '0' },
   };
 
@@ -734,7 +737,6 @@ export default function Dashboard() {
     { key: 'macros' as const, label: 'Macros', color: C.purple },
   ];
 
-  // Date-grouped meals (last 7 days)
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const recentMeals = meals.filter(m => {
     const dateStr = (m as any).meal_date;
@@ -809,7 +811,6 @@ export default function Dashboard() {
 
         {/* ── Chart Panel ────────────────────────────────────────────────── */}
         <View style={[styles.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
-          {/* Chart area has its own surfaceHi background to match second file */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
             {tabs.map(t => (
               <TabButton key={t.key} label={t.label} active={activeTab === t.key} color={t.color} onPress={() => setActiveTab(t.key)} C={C} />
@@ -825,7 +826,6 @@ export default function Dashboard() {
             {activeTab === 'macros' && 'Protein · Carbs · Sugar — monthly averages'}
           </Text>
 
-          {/* Chart wrapper with surfaceHi background — matches second dashboard */}
           <View style={[styles.chartWrapper, { backgroundColor: C.surfaceHi, borderRadius: 12 }]}>
             {activeTab === 'calories' && (
               <LineChart data={toChartData(calorieData, 'calories')} width={CHART_WIDTH} height={200}
@@ -905,7 +905,7 @@ export default function Dashboard() {
           )}
         </View>
 
-        {/* ── Logged Meals — Date Grouped ────────────────────────────────── */}
+        {/* ── Logged Meals ──────────────────────────────────────────────── */}
         <View style={[styles.panel, { backgroundColor: C.surface, borderColor: C.border }]}>
           <SectionHeader title="Logged Meals" subtitle="last 7 days" C={C} />
           <View style={[styles.panelDivider, { backgroundColor: C.border }]} />
