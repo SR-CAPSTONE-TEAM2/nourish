@@ -4,6 +4,7 @@ import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme, StyleSheet, TouchableOpacity, TextInput, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/context/theme-context';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { HorizCardList } from '@/components/ui/carousels/horiz-card-list';
 import { DefaultCard } from '@/components/ui/cards/default-card';
@@ -97,8 +98,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   numberInput: {
-    backgroundColor: '#1C1C2E',
-    color: 'white',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 6,

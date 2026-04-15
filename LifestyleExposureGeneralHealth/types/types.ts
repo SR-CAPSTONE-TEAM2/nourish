@@ -1,4 +1,4 @@
-export type MealType = 'Breakfast' | 'Lunch' | 'Dinner';
+export type MealType = 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
 
 export type Vitamins = {
   vitaminA: number; // mcg
@@ -35,6 +35,7 @@ export type FoodItem = {
   protein: number;
   carbs: number;
   fat: number;
+  quantity: number;
   vitamins: Vitamins;
   minerals: Minerals;
 };

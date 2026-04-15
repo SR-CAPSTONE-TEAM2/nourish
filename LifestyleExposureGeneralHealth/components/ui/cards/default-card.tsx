@@ -1,7 +1,6 @@
 import { StyleSheet, Pressable } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useTheme } from '@/context/theme-context';
 import { DefaultCardData } from './types';
 
 interface CardProps {
@@ -11,7 +10,7 @@ interface CardProps {
 }
 
 export function DefaultCard({ data, onPress, disabled = false }: CardProps) {
-  const theme = useColorScheme() ?? 'light';
+  const { isDark, colors } = useTheme();
 
   return (
     <Pressable
@@ -19,7 +18,7 @@ export function DefaultCard({ data, onPress, disabled = false }: CardProps) {
       disabled={disabled || !onPress}
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: theme === 'light' ? '#f0f0f0' : '#1C1C2E' },
+        { backgroundColor: colors.card },
         pressed && onPress && styles.pressed,
         disabled && styles.disabled,
       ]}
@@ -36,7 +35,6 @@ const styles = StyleSheet.create({
     height: 180,
     padding: 16,
     borderRadius: 12,
-    backgroundColor: '#f0f0f0',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -3 },
     shadowOpacity: 0.1,
@@ -51,4 +49,3 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
-

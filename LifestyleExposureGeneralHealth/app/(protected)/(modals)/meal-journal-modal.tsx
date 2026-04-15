@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  useColorScheme,
   KeyboardAvoidingView,
   Platform,
   Animated,
@@ -18,6 +17,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemedText } from '@/components/themed-text';
+import { useTheme } from '@/context/theme-context';
 import { TemplateMeal } from '@/types/diets-meals';
 import { useMealJournalEntries, JournalEntry } from '@/hooks/useMealJournalEntries';
 import { useUserDiet } from '@/hooks/useUserDiet';
@@ -187,8 +187,7 @@ export function MealJournalModal({
   mealType,
   onClose,
 }: MealJournalModalProps) {
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
 
   const { entries, addEntry, deleteEntry, isLoading } = useMealJournalEntries(meal?.meal_id);
   const [rating, setRating] = useState<number | null>(meal?.rating ?? null);
@@ -339,7 +338,7 @@ export function MealJournalModal({
           {/* Content */}
           <View style={styles.content}>
             {/* Left Side - Meal Info (25%) */}
-            <View style={styles.leftPanel}>
+            <View style={[styles.leftPanel, { borderRightColor: isDark ? '#2D2D3D' : '#EBEBEB' }]}>
               {/* Meal Image */}
               <View
                 style={[
@@ -359,7 +358,7 @@ export function MealJournalModal({
                   <ThemedText style={styles.nutritionLabel}>kcal</ThemedText>
                 </View>
 
-                <View style={styles.nutritionDivider} />
+                <View style={[styles.nutritionDivider, { backgroundColor: isDark ? '#3D3D4D' : '#E5E5E7' }]} />
 
                 <View style={styles.nutritionItem}>
                   <ThemedText style={[styles.nutritionValue, { color: '#34d399' }]}>
@@ -368,7 +367,7 @@ export function MealJournalModal({
                   <ThemedText style={styles.nutritionLabel}>protein</ThemedText>
                 </View>
 
-                <View style={styles.nutritionDivider} />
+                <View style={[styles.nutritionDivider, { backgroundColor: isDark ? '#3D3D4D' : '#E5E5E7' }]} />
 
                 <View style={styles.nutritionItem}>
                   <ThemedText style={[styles.nutritionValue, { color: '#a78bfa' }]}>
@@ -377,7 +376,7 @@ export function MealJournalModal({
                   <ThemedText style={styles.nutritionLabel}>carbs</ThemedText>
                 </View>
 
-                <View style={styles.nutritionDivider} />
+                <View style={[styles.nutritionDivider, { backgroundColor: isDark ? '#3D3D4D' : '#E5E5E7' }]} />
 
                 <View style={styles.nutritionItem}>
                   <ThemedText style={[styles.nutritionValue, { color: '#60a5fa' }]}>
@@ -705,3 +704,5 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+
+export default MealJournalModal;

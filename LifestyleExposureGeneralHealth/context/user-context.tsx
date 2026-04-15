@@ -74,20 +74,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           .eq('user_id', authUser.id)
           .order('observation_date', { ascending: false }),
         supabase
-          .from('user_diets')
-          .select(`
-            *,
-            diet:diets(*)
-          `)
+          .from('user_profiles')
+          .select('active_diet_id, diets(*)')
           .eq('user_id', authUser.id)
-          .eq('is_active', true)
           .single(),
       ]);
 
       if (prof) setProfile(prof);
       if (mealData) setMeals(mealData);
       if (metricData) setMetrics(metricData);
-      if (userDietData?.diet) setActiveDiet(userDietData.diet as Diet);
+      
+      const activeDietData = Array.isArray(userDietData?.diets) 
+        ? userDietData.diets[0] 
+        : userDietData?.diets;
+        
+      if (activeDietData) setActiveDiet(activeDietData as Diet);
 
     } catch (error) {
       console.error('Error loading user data:', error);

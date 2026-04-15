@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import ParallaxScrollView from '@/components/parallax-scroll-view'
+import { useTheme } from '@/context/theme-context'
 
 type Chemical = {
   id: string
@@ -26,11 +27,21 @@ type SearchResult =
   | { type: 'pesticide'; data: Pesticide }
 
 export default function SearchScreen() {
+  const { isDark, colors } = useTheme()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
+
+  const bg = isDark ? '#141414' : '#FAFAFA'
+  const cardBg = isDark ? '#1e1e1e' : '#FFFFFF'
+  const cardBorder = isDark ? '#2a2a2a' : '#E5E5E7'
+  const textColor = isDark ? '#e0e0e0' : '#111111'
+  const textMuted = isDark ? '#555' : '#999'
+  const inputBg = isDark ? '#1e1e1e' : '#F0F0F0'
+  const headingColor = isDark ? '#f0f0f0' : '#111111'
+  const detailValueColor = isDark ? '#bbb' : '#333'
 
   const handleSearch = async () => {
     const trimmed = query.trim()
@@ -71,27 +82,33 @@ export default function SearchScreen() {
     setExpanded((prev) => (prev === key ? null : key))
   }
 
+  const scrollbarTrack = isDark ? '#1a1a1a' : '#f0f0f0'
+  const scrollbarThumb = isDark ? '#333' : '#ccc'
+  const hoverBorder = isDark ? '#444' : '#ccc'
+  const focusBorder = '#8B5CF6'
+  const spinnerBorder = isDark ? '#333' : '#ddd'
+
   return (
     <ParallaxScrollView
-      headerBackgroundColor={{ light: '#1C1C2E', dark: '#1C1C2E' }}>
+      headerBackgroundColor={{ light: '#F5F5F5', dark: '#1C1C2E' }}>
       <div style={{
         minHeight: '100vh',
-        background: '#141414',
-        color: '#e0e0e0',
+        background: bg,
+        color: textColor,
         fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
         padding: '0',
       }}>
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=DM+Sans:wght@400;500;600&display=swap');
           * { box-sizing: border-box; }
-          .search-input:focus { outline: none; border-color: #8B5CF6 !important; }
+          .search-input:focus { outline: none; border-color: ${focusBorder} !important; }
           .result-card { transition: border-color 0.2s, transform 0.15s; }
-          .result-card:hover { border-color: #444 !important; transform: translateY(-1px); }
+          .result-card:hover { border-color: ${hoverBorder} !important; transform: translateY(-1px); }
           .search-btn { transition: background 0.2s, transform 0.15s; }
           .search-btn:hover { background: #7C4FE0 !important; transform: translateY(-1px); }
           ::-webkit-scrollbar { width: 6px; }
-          ::-webkit-scrollbar-track { background: #1a1a1a; }
-          ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+          ::-webkit-scrollbar-track { background: ${scrollbarTrack}; }
+          ::-webkit-scrollbar-thumb { background: ${scrollbarThumb}; border-radius: 3px; }
         `}</style>
 
         <main style={{ maxWidth: '1100px', margin: '0 auto', padding: '40px 24px' }}>
@@ -102,12 +119,12 @@ export default function SearchScreen() {
               fontFamily: "'Outfit', sans-serif",
               fontSize: '32px',
               fontWeight: '700',
-              color: '#f0f0f0',
+              color: headingColor,
               margin: '0 0 6px 0',
             }}>
               Search
             </h1>
-            <p style={{ color: '#555', fontSize: '14px', margin: 0 }}>
+            <p style={{ color: textMuted, fontSize: '14px', margin: 0 }}>
               Look up chemicals and pesticides in the database
             </p>
           </div>
@@ -128,13 +145,13 @@ export default function SearchScreen() {
               style={{
                 flex: 1,
                 height: '48px',
-                background: '#1e1e1e',
-                border: '1px solid #2a2a2a',
+                background: inputBg,
+                border: `1px solid ${cardBorder}`,
                 borderRadius: '14px',
                 padding: '0 18px',
                 fontSize: '14px',
                 fontFamily: "'DM Sans', sans-serif",
-                color: '#e0e0e0',
+                color: textColor,
                 outline: 'none',
               }}
             />
@@ -169,7 +186,7 @@ export default function SearchScreen() {
                 width: 32,
                 height: 32,
                 borderRadius: '50%',
-                border: '3px solid #333',
+                border: `3px solid ${spinnerBorder}`,
                 borderTopColor: '#8B5CF6',
                 animation: 'spin 0.8s linear infinite',
               }} />
@@ -182,7 +199,7 @@ export default function SearchScreen() {
             <div style={{
               textAlign: 'center',
               padding: '40px 0',
-              color: '#555',
+              color: textMuted,
               fontSize: '14px',
             }}>
               No results found.
@@ -195,7 +212,7 @@ export default function SearchScreen() {
               {/* Result Count */}
               <div style={{
                 fontSize: '12px',
-                color: '#666',
+                color: textMuted,
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
                 marginBottom: '4px',
@@ -218,8 +235,8 @@ export default function SearchScreen() {
                     className="result-card"
                     onClick={() => toggleExpand(key)}
                     style={{
-                      background: '#1e1e1e',
-                      border: '1px solid #2a2a2a',
+                      background: cardBg,
+                      border: `1px solid ${cardBorder}`,
                       borderRadius: '16px',
                       padding: '18px 22px',
                       cursor: 'pointer',
@@ -246,18 +263,18 @@ export default function SearchScreen() {
                       <span style={{
                         fontSize: '15px',
                         fontWeight: '600',
-                        color: '#e0e0e0',
+                        color: textColor,
                         flex: 1,
                       }}>
                         {name}
                       </span>
                       <span style={{
                         fontSize: '18px',
-                        color: '#555',
+                        color: textMuted,
                         transition: 'transform 0.2s',
                         transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                       }}>
-                        ▾
+                        &#9662;
                       </span>
                     </div>
 
@@ -265,7 +282,7 @@ export default function SearchScreen() {
                     {cas && (
                       <div style={{
                         fontSize: '13px',
-                        color: '#555',
+                        color: textMuted,
                         marginTop: '6px',
                         fontFamily: "'DM Sans', monospace",
                       }}>
@@ -278,7 +295,7 @@ export default function SearchScreen() {
                       <div style={{
                         marginTop: '14px',
                         paddingTop: '14px',
-                        borderTop: '1px solid #2a2a2a',
+                        borderTop: `1px solid ${cardBorder}`,
                         display: 'flex',
                         flexDirection: 'column',
                         gap: '8px',
@@ -286,9 +303,9 @@ export default function SearchScreen() {
                         {/* Chemical details */}
                         {chemical && (
                           <>
-                            <DetailRow label="DTXSID" value={chemical.dtxsid} />
+                            <DetailRow label="DTXSID" value={chemical.dtxsid} labelColor={textMuted} valueColor={detailValueColor} />
                             {chemical.molecular_formula && (
-                              <DetailRow label="Formula" value={chemical.molecular_formula} />
+                              <DetailRow label="Formula" value={chemical.molecular_formula} labelColor={textMuted} valueColor={detailValueColor} />
                             )}
                             {chemical.category && chemical.category.length > 0 && (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
@@ -329,16 +346,16 @@ export default function SearchScreen() {
                         {pesticide && (
                           <>
                             {pesticide.pesticide_type && (
-                              <DetailRow label="Type" value={pesticide.pesticide_type} />
+                              <DetailRow label="Type" value={pesticide.pesticide_type} labelColor={textMuted} valueColor={detailValueColor} />
                             )}
                             {pesticide.primary_concern && (
-                              <DetailRow label="Concern" value={pesticide.primary_concern} color="#fb7185" />
+                              <DetailRow label="Concern" value={pesticide.primary_concern} color="#fb7185" labelColor={textMuted} valueColor={detailValueColor} />
                             )}
                             {pesticide.commonly_found_on && pesticide.commonly_found_on.length > 0 && (
                               <div>
                                 <div style={{
                                   fontSize: '11px',
-                                  color: '#666',
+                                  color: textMuted,
                                   textTransform: 'uppercase',
                                   letterSpacing: '0.06em',
                                   marginBottom: '6px',
@@ -377,12 +394,12 @@ export default function SearchScreen() {
   )
 }
 
-function DetailRow({ label, value, color }: { label: string; value: string; color?: string }) {
+function DetailRow({ label, value, color, labelColor, valueColor }: { label: string; value: string; color?: string; labelColor?: string; valueColor?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px' }}>
       <span style={{
         fontSize: '11px',
-        color: '#666',
+        color: labelColor ?? '#666',
         textTransform: 'uppercase',
         letterSpacing: '0.06em',
         minWidth: '70px',
@@ -391,7 +408,7 @@ function DetailRow({ label, value, color }: { label: string; value: string; colo
       </span>
       <span style={{
         fontSize: '14px',
-        color: color ?? '#bbb',
+        color: color ?? valueColor ?? '#bbb',
         fontWeight: '500',
       }}>
         {value}
