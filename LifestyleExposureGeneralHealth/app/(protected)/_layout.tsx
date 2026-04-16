@@ -1,36 +1,19 @@
-import { useEffect, useState } from 'react'
-import { Redirect, Slot } from 'expo-router'
-import { supabase } from '@/lib/supabase'
-import { UserProvider } from '@/context/user-context'
+import { Redirect, Slot, Stack } from 'expo-router'
+import { UserProvider, useUser } from '@/context/user-context'
 
-export default function ProtectedLayout() {
-  const [loading, setLoading] = useState(true)
-  const [session, setSession] = useState<any>(null)
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setLoading(false)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
+function ProtectedGuard() {
+  const { user, loading } = useUser()
 
   if (loading) return null
+  if (!user) return <Redirect href="/login" />
 
-  if (!session) {
-    return <Redirect href="/login" />
-  }
+  return <Stack screenOptions={{ headerShown: false }} />
+}
 
+export default function ProtectedLayout() {
   return (
     <UserProvider>
-      <Slot />
+      <ProtectedGuard />
     </UserProvider>
   )
 }

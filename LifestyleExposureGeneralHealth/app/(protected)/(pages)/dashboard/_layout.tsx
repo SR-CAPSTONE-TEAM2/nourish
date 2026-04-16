@@ -13,6 +13,15 @@ export default function DashboardLayout() {
         }}
       />
       {/* Other screens */}
+      <Stack.Screen
+        name="meal-schedule"
+        options={{
+          headerShown: false,
+          headerBackVisible: false,
+          freezeOnBlur: true,
+          title: 'Meal Schedule'
+        }}
+      />
     </Stack>
   );
 }

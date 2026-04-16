@@ -1,50 +1,143 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { UserProfile, Meal, Metric } from '@/types/types'
+// context/user-context.tsx
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { supabase } from '@/lib/supabase';
+import { User } from '@supabase/supabase-js';
+import { UserProfile, Meal, Metric } from '@/types/types';
+import { Diet } from '@/types/diets-meals';
 
 interface UserContextType {
-  profile: UserProfile | null
-  meals: Meal[]
-  metrics: Metric[]
-  loading: boolean
-  refresh: () => void
+  user: User | null;
+  profile: UserProfile | null;
+  meals: Meal[];
+  metrics: Metric[];
+  activeDiet: Diet | null;
+  loading: boolean;
+  refresh: () => Promise<void>;
+  setActiveDiet: (diet: Diet | null) => void;
 }
 
-const UserContext = createContext<UserContextType | null>(null)
+const UserContext = createContext<UserContextType | null>(null);
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [meals, setMeals] = useState<Meal[]>([])
-  const [metrics, setMetrics] = useState<Metric[]>([])
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [meals, setMeals] = useState<Meal[]>([]);
+  const [metrics, setMetrics] = useState<Metric[]>([]);
+  const [activeDiet, setActiveDiet] = useState<Diet | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const load = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        setUser(null);
+        setLoading(false); // redirect fires immediately, no network wait
+      }
+      // if session exists, let load() handle the full data fetch
+    });
+  }, []);
 
-    const [{ data: prof }, { data: mealData }, { data: metricData }] = await Promise.all([
-      supabase.from('user_profiles').select('*').eq('user_id', user.id).single(),
-      supabase.from('user_meals').select('*').eq('user_id', user.id).order('meal_date', { ascending: true }),
-      supabase.from('user_metrics').select('*').eq('user_id', user.id).order('observation_date', { ascending: true }),
-    ])
+  const load = useCallback(async () => {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
 
-    if (prof) setProfile(prof)
-    if (mealData) setMeals(mealData)
-    if (metricData) setMetrics(metricData)
-    setLoading(false)
-  }
+      if (!authUser) {
+        setUser(null);
+        setProfile(null);
+        setMeals([]);
+        setMetrics([]);
+        setActiveDiet(null);
+        setLoading(false);
+        return;
+      }
 
-  useEffect(() => { load() }, [])
+      setUser(authUser);
+
+      const [
+        { data: prof },
+        { data: mealData },
+        { data: metricData },
+        { data: userDietData }
+      ] = await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .single(),
+        supabase
+          .from('user_meals')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .order('meal_date', { ascending: false }),
+        supabase
+          .from('user_metrics')
+          .select('*')
+          .eq('user_id', authUser.id)
+          .order('observation_date', { ascending: false }),
+        supabase
+          .from('user_profiles')
+          .select('active_diet_id, diets(*)')
+          .eq('user_id', authUser.id)
+          .single(),
+      ]);
+
+      if (prof) setProfile(prof);
+      if (mealData) setMeals(mealData);
+      if (metricData) setMetrics(metricData);
+      
+      const activeDietData = Array.isArray(userDietData?.diets) 
+        ? userDietData.diets[0] 
+        : userDietData?.diets;
+        
+      if (activeDietData) setActiveDiet(activeDietData as Diet);
+
+    } catch (error) {
+      console.error('Error loading user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          load();
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setProfile(null);
+          setMeals([]);
+          setMetrics([]);
+          setActiveDiet(null);
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
+  }, [load]);
 
   return (
-    <UserContext.Provider value={{ profile, meals, metrics, loading, refresh: load }}>
+    <UserContext.Provider
+      value={{
+        user,
+        profile,
+        meals,
+        metrics,
+        activeDiet,
+        loading,
+        refresh: load,
+        setActiveDiet,
+      }}
+    >
       {children}
     </UserContext.Provider>
-  )
+  );
 }
 
 export function useUser() {
-  const ctx = useContext(UserContext)
-  if (!ctx) throw new Error('useUser must be used within a UserProvider')
-  return ctx
+  const ctx = useContext(UserContext);
+  if (!ctx) throw new Error('useUser must be used within a UserProvider');
+  return ctx;
 }
