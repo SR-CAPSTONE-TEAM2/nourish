@@ -68,21 +68,14 @@ export default function AIGenerateScreen() {
         end = today.toISOString().split('T')[0];
       }
 
-      // Testing locally since edge function isn't deployed
-      const response = await fetch('http://127.0.0.1:54321/functions/v1/generate-diet', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ startDate: start, endDate: end, preferences })
+      // Invoke the Edge Function seamlessly via Supabase Cloud SDK!
+      const { data, error } = await supabase.functions.invoke('generate-diet', {
+        body: { startDate: start, endDate: end, preferences }
       });
 
-      if (!response.ok) {
-        throw new Error(`Edge Function error: ${response.statusText}`);
+      if (error) {
+         throw new Error(`Edge Function error: ${error.message}`);
       }
-
-      const data = await response.json();
 
       if (data && data.diet) {
         setGeneratedDiet(data.diet);

@@ -87,18 +87,35 @@ EXAMPLE OF EXPECTED ATOMIC OUTPUT:
   "evening snack": []
 }
 `;
-    //const ollamaHost = 'http://host.docker.internal:11434';
-    const ollamaHost = 'http://100.82.27.91:11434';
+    const apiKey = Deno.env.get("OLLAMA_API_KEY");
+    const ollamaHost = apiKey ? 'https://ollama.com' : 'http://100.82.27.91:11434';
+    
+    // Fall back to a standard cloud-hosted model name if the API key is present!
+    const targetModel = apiKey ? 'gemma4:31b-cloud' : 'gemma4:26b';
 
     // --- PING CHECK ---
     try {
       console.log(`[INFO] Pinging Ollama at ${ollamaHost}...`);
-      const ping = await fetch(`${ollamaHost}/api/tags`, { signal: AbortSignal.timeout(3000) });
-      if (!ping.ok) throw new Error("Ping failed");
-      console.log(`[INFO] Successfully reached Ollama!`);
+      const pingHeaders: HeadersInit = {};
+      if (apiKey) pingHeaders['Authorization'] = `Bearer ${apiKey}`;
+      
+      const ping = await fetch(`${ollamaHost}/api/tags`, { 
+        headers: pingHeaders,
+        signal: AbortSignal.timeout(4000) 
+      });
+      
+      if (!ping.ok) {
+         if (ping.status === 401 || ping.status === 403) {
+            console.warn(`[WARN] Cloud Ping returned 401/403. Key might be invalid, or endpoint protects /api/tags. Proceeding anyway.`);
+         } else {
+            throw new Error(`Ping failed with status ${ping.status}`);
+         }
+      } else {
+         console.log(`[INFO] Successfully reached Ollama!`);
+      }
     } catch (err) {
       console.error(`[ERROR] Could not connect to Ollama at ${ollamaHost}. Network or container routing issue.`, err);
-      return new Response(JSON.stringify({ error: `Cannot reach local Ollama server at ${ollamaHost}. Please check your OLLAMA_HOST bindings or network routing.` }), { status: 502, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(JSON.stringify({ error: `Cannot reach Ollama server at ${ollamaHost}. Please check your connections.` }), { status: 502, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
     // --- Implement Keep-Alive Stream to prevent Kong 504 Gateway Timeouts ---
@@ -113,7 +130,16 @@ EXAMPLE OF EXPECTED ATOMIC OUTPUT:
         }, 15000);
 
         try {
-          const ollama = new Ollama({ host: ollamaHost });
+          const ollama = new Ollama({ 
+             host: ollamaHost, 
+             fetch: (input, init) => {
+               const options = init || {};
+               if (apiKey) {
+                 options.headers = { ...options.headers, 'Authorization': `Bearer ${apiKey}` };
+               }
+               return fetch(input, options);
+             }
+          });
 
           const MAX_RETRIES = 2;
           let finalDict = null;
@@ -126,7 +152,7 @@ EXAMPLE OF EXPECTED ATOMIC OUTPUT:
 
             console.log(`[INFO] Sending API Request to Ollama...`);
             const responseStream = await ollama.chat({
-              model: 'gemma4:26b',
+              model: targetModel,
               format: 'json',
               messages: [
                 {

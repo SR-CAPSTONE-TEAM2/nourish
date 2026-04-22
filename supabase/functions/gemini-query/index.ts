@@ -36,7 +36,19 @@ Deno.serve(async (req) => { //req is query from app
   console.log("[DEBUG] Query: ", query)
   console.log("[DEBUG] Nutrition Data provided: ", !!nutritionData)
 
-  const ollama = new Ollama({ host: 'http://100.82.27.91:11434' });
+  const apiKey = Deno.env.get("OLLAMA_API_KEY");
+  const ollamaHost = apiKey ? 'https://ollama.com' : 'http://100.82.27.91:11434';
+  
+  const ollama = new Ollama({ 
+     host: ollamaHost, 
+     fetch: (input, init) => {
+       const options = init || {};
+       if (apiKey) {
+         options.headers = { ...options.headers, 'Authorization': `Bearer ${apiKey}` };
+       }
+       return fetch(input, options);
+     }
+  });
 
   let prompt = "";
   if (nutritionData) {
@@ -55,7 +67,7 @@ ${query}
   }
 
   const response = await ollama.chat({
-    model: 'MedAIBase/MedGemma1.5:4b',
+    model: apiKey ? 'gpt-oss:120b-cloud' : 'MedAIBase/MedGemma1.5:4b',
     messages: [{ role: 'user', content: prompt }],
   });
 
