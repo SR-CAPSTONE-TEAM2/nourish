@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/context/theme-context'
 import { Ionicons } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const CHART_W = SCREEN_WIDTH - 76
@@ -459,6 +460,7 @@ type RangeTab = 'weekly' | 'monthly'
 export default function StatsScreen() {
   const insets = useSafeAreaInsets()
   const { isDark, colors, setThemeMode } = useTheme()
+  const router = useRouter()
   const [meals, setMeals] = useState<AnyRow[]>([])
   const [loading, setLoading] = useState(true)
   const [macroTab, setMacroTab] = useState<MacroTab>('calories')
@@ -823,6 +825,16 @@ export default function StatsScreen() {
         )}
 
       </ScrollView>
+
+      {/* ── Ask AI Floating Action Button ──────────────────────────────── */}
+      <TouchableOpacity
+        style={[s.fab, { backgroundColor: ACCENT.purple, shadowColor: ACCENT.purple }]}
+        activeOpacity={0.8}
+        onPress={() => router.push('/profile/ask-ai')}
+      >
+        <Ionicons name="sparkles" size={24} color="#FFF" />
+      </TouchableOpacity>
+
     </View>
   )
 }
@@ -844,4 +856,18 @@ const s = StyleSheet.create({
   content: { padding: 20, paddingBottom: 60, gap: 20 },
   panel: { borderWidth: 1, borderRadius: 22, padding: 18, gap: 14 },
   divider: { height: 1, marginHorizontal: -18 },
+  fab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+  },
 })
