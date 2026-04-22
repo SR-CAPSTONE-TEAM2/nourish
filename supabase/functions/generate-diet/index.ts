@@ -25,20 +25,24 @@ Deno.serve(async (req) => {
 
     const { startDate, endDate, preferences } = await req.json();
 
-    // Query historical meals to provide as context
-    const { data: meals, error: mealsError } = await supabase
-      .from('user_meals')
-      .select('meal_date, meal_type, meal_items ( ingredient_name, quantity )')
-      .gte('meal_date', `${startDate} 00:00:00`)
-      .lte('meal_date', `${endDate} 23:59:59`);
+    let mealsContext = "No historical meals found.";
 
-    if (mealsError) {
-      console.error("[ERROR] Failed to fetch meals", mealsError);
+    if (startDate && endDate) {
+      // Query historical meals to provide as context
+      const { data: meals, error: mealsError } = await supabase
+        .from('user_meals')
+        .select('meal_date, meal_type, meal_items ( ingredient_name, quantity )')
+        .gte('meal_date', `${startDate} 00:00:00`)
+        .lte('meal_date', `${endDate} 23:59:59`);
+
+      if (mealsError) {
+        console.error("[ERROR] Failed to fetch meals", mealsError);
+      } else if (meals && meals.length > 0) {
+        mealsContext = meals.map(m =>
+          `- ${m.meal_type}: ${m.meal_items?.map(i => `${i.quantity || 1}x ${i.ingredient_name}`).join(', ')}`
+        ).join('\n');
+      }
     }
-
-    const mealsContext = meals && meals.length > 0 ? meals.map(m =>
-      `- ${m.meal_type}: ${m.meal_items?.map(i => `${i.quantity || 1}x ${i.ingredient_name}`).join(', ')}`
-    ).join('\n') : "No historical meals found.";
 
     const prompt = `
 You are an expert nutritionist AI. Your task is to generate a personalized daily diet plan for a user.
