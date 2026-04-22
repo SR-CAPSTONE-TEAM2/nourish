@@ -7,7 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
-  useColorScheme,
+  Switch,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,7 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/user-context';
+import { useTheme } from '@/context/theme-context';
 
 type FoodItem = {
   original_name: string;
@@ -38,29 +39,34 @@ type GeneratedDiet = {
 
 export default function AIGenerateScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const { isDark, colors } = useTheme();
   const { user } = useUser();
   
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [useHistoricalData, setUseHistoricalData] = useState(false);
   const [preferences, setPreferences] = useState('');
   
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedDiet, setGeneratedDiet] = useState<GeneratedDiet | null>(null);
   
   const handleGenerate = async () => {
-    if (!startDate || !endDate) {
-      Alert.alert('Missing Dates', 'Please provide both start and end dates.');
-      return;
-    }
-
     setIsGenerating(true);
     setGeneratedDiet(null);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
+
+      let start = '';
+      let end = '';
+      
+      if (useHistoricalData) {
+        const today = new Date();
+        const fourMonthsAgo = new Date();
+        fourMonthsAgo.setMonth(today.getMonth() - 4);
+        
+        start = fourMonthsAgo.toISOString().split('T')[0];
+        end = today.toISOString().split('T')[0];
+      }
 
       // Testing locally since edge function isn't deployed
       const response = await fetch('http://127.0.0.1:54321/functions/v1/generate-diet', {
@@ -69,7 +75,7 @@ export default function AIGenerateScreen() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ startDate, endDate, preferences })
+        body: JSON.stringify({ startDate: start, endDate: end, preferences })
       });
 
       if (!response.ok) {
@@ -205,7 +211,7 @@ export default function AIGenerateScreen() {
   const renderMealSection = (title: string, items: FoodItem[]) => {
     if (!items || items.length === 0) return null;
     return (
-      <View style={[styles.resultSection, { backgroundColor: isDark ? '#1A1A2E' : '#FFFFFF' }]} key={title}>
+      <View style={[styles.resultSection, { backgroundColor: colors.card }]} key={title}>
         <ThemedText style={styles.resultSectionTitle}>{title}</ThemedText>
         {items.map((item, index) => (
           <View key={index} style={styles.resultItem}>
@@ -229,7 +235,16 @@ export default function AIGenerateScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerTitle: 'AI Diet Generator', headerBackTitle: 'Back' }} />
+      <Stack.Screen 
+        options={{ 
+          headerTitle: 'AI Diet Generator',
+          headerLeft: ({ canGoBack }) => (
+            <TouchableOpacity onPress={() => router.replace('/journal')} style={{ marginRight: 16 }}>
+              <Ionicons name="chevron-back" size={28} color={colors.text} />
+            </TouchableOpacity>
+          )
+        }} 
+      />
       <ThemedView style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           
@@ -237,32 +252,20 @@ export default function AIGenerateScreen() {
             Let AI analyze your historical diet data and create a personalized plan just for you.
           </ThemedText>
 
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>Start Date</ThemedText>
-            <TextInput
-              style={[styles.input, { backgroundColor: isDark ? '#1A1A2E' : '#FFFFFF', color: isDark ? '#FFFFFF' : '#000000' }]}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={isDark ? '#555' : '#AAA'}
-              value={startDate}
-              onChangeText={setStartDate}
-            />
-          </View>
-
-          <View style={styles.formGroup}>
-            <ThemedText style={styles.label}>End Date</ThemedText>
-            <TextInput
-              style={[styles.input, { backgroundColor: isDark ? '#1A1A2E' : '#FFFFFF', color: isDark ? '#FFFFFF' : '#000000' }]}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={isDark ? '#555' : '#AAA'}
-              value={endDate}
-              onChangeText={setEndDate}
+          <View style={[styles.formGroup, { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8 }]}>
+            <ThemedText style={styles.label}>Use my past 4 months of meal logs to inspire the AI</ThemedText>
+            <Switch
+              value={useHistoricalData}
+              onValueChange={setUseHistoricalData}
+              trackColor={{ false: isDark ? '#333' : '#E5E7EB', true: '#8B5CF6' }}
+              thumbColor={isDark ? '#FFF' : '#FFF'}
             />
           </View>
 
           <View style={styles.formGroup}>
             <ThemedText style={styles.label}>Additional Preferences (Optional)</ThemedText>
             <TextInput
-              style={[styles.input, styles.textArea, { backgroundColor: isDark ? '#1A1A2E' : '#FFFFFF', color: isDark ? '#FFFFFF' : '#000000' }]}
+              style={[styles.input, styles.textArea, { backgroundColor: isDark ? colors.card : '#FFFFFF', color: colors.text, borderColor: isDark ? '#333' : '#E5E7EB' }]}
               placeholder="e.g. No green beans, high protein, keto..."
               placeholderTextColor={isDark ? '#555' : '#AAA'}
               value={preferences}
