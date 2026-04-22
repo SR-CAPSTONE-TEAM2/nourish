@@ -4,13 +4,33 @@ import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { useTheme } from '@/context/theme-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import Markdown from 'react-native-markdown-display';
 
 export default function AskAIScreen() {
     const [query, setQuery] = useState('');
     const [response, setResponse] = useState('');
     const [loading, setLoading] = useState(false);
     const { isDark, colors } = useTheme();
+    const router = useRouter();
+
+    const markdownStyles = {
+        body: { color: colors.text, fontSize: 16, lineHeight: 24 },
+        heading1: { color: colors.text, fontSize: 28, fontWeight: 'bold' as const, marginVertical: 12 },
+        heading2: { color: colors.text, fontSize: 22, fontWeight: 'bold' as const, marginVertical: 10 },
+        heading3: { color: colors.text, fontSize: 18, fontWeight: 'bold' as const, marginVertical: 8 },
+        strong: { color: colors.text, fontWeight: 'bold' as const },
+        em: { color: colors.text, fontStyle: 'italic' as const },
+        paragraph: { color: colors.text, marginBottom: 12, lineHeight: 24 },
+        list_item: { color: colors.text, marginBottom: 6, lineHeight: 24 },
+        bullet_list: { color: colors.text, marginBottom: 12 },
+        ordered_list: { color: colors.text, marginBottom: 12 },
+        link: { color: '#0a7ea4', textDecorationLine: 'underline' as const },
+        code_inline: { color: colors.textSecondary, backgroundColor: colors.border, padding: 4, borderRadius: 4, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+        code_block: { color: colors.textSecondary, backgroundColor: colors.border, padding: 12, borderRadius: 8, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace', marginBottom: 12 },
+        blockquote: { borderLeftColor: colors.primary, borderLeftWidth: 4, paddingLeft: 10, marginVertical: 12, opacity: 0.8 },
+    };
 
     const submitQuery = async () => {
         if (!query.trim()) return;
@@ -19,25 +39,13 @@ export default function AskAIScreen() {
         setResponse('');
 
         try {
-            const url = __DEV__
-                ? 'http://127.0.0.1:54321/functions/v1/gemini-query'
-                : undefined;
-
-            // Note: If url is provided, it must be the full URL, otherwise invoke() will use EXPO_PUBLIC_SUPABASE_URL.
-            const res = await fetch(url || `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/gemini-query`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY}`,
-                },
-                body: JSON.stringify({ query: query.trim() })
+            const { data, error } = await supabase.functions.invoke('gemini-query', {
+                body: { query: query.trim() }
             });
 
-            const data = await res.json();
-
-            if (!res.ok) {
-                console.error("Error calling Supabase function:", data);
-                setResponse("Sorry, there was an error processing your request.");
+            if (error) {
+                console.error("Error calling Supabase function:", error);
+                setResponse(`Sorry, there was an error processing your request. ${error.message}`);
             } else if (data && data.message) {
                 setResponse(data.message);
             } else {
@@ -59,18 +67,25 @@ export default function AskAIScreen() {
         >
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 <ThemedView style={styles.content}>
-                    <ThemedText type="subtitle" style={styles.header}>
-                        Ask AI Assistant
-                    </ThemedText>
+                    <View style={styles.headerContainer}>
+                        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                            <Ionicons name="chevron-back" size={28} color={colors.text} />
+                        </TouchableOpacity>
+                        <ThemedText type="subtitle" style={styles.header}>
+                            Ask AI Assistant
+                        </ThemedText>
+                    </View>
 
                     {loading ? (
                         <View style={styles.responseContainer}>
                             <ActivityIndicator size="large" color={colors.primary} />
-                            <ThemedText style={styles.loadingText}>Analyzing research...</ThemedText>
+                            <ThemedText style={styles.loadingText}>Analyzing Data...</ThemedText>
                         </View>
                     ) : response ? (
                         <ThemedView style={[styles.responseContainer, { backgroundColor: colors.inputBackground }]}>
-                            <ThemedText style={styles.responseText}>{response}</ThemedText>
+                            <Markdown style={markdownStyles}>
+                                {response}
+                            </Markdown>
                         </ThemedView>
                     ) : (
                         <View style={styles.emptyResponseSpace} />
@@ -120,8 +135,16 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 20,
     },
-    header: {
+    headerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
         marginBottom: 10,
+    },
+    backButton: {
+        marginRight: 10,
+    },
+    header: {
+        marginBottom: 0,
     },
     description: {
         marginBottom: 30,

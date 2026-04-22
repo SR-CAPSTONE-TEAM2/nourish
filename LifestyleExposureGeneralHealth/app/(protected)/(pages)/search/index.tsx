@@ -29,6 +29,16 @@ type SearchResult =
 
 export default function SearchScreen() {
   const { isDark, colors } = useTheme()
+  
+  const bg = colors.background
+  const textColor = colors.text
+  const headingColor = colors.text
+  const textMuted = colors.textMuted
+  const inputBg = colors.inputBackground
+  const cardBorder = colors.border
+  const cardBg = colors.surface
+  const detailValueColor = colors.text
+
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
