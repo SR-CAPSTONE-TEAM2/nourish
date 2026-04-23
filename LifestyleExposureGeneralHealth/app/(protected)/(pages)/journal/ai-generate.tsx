@@ -16,6 +16,7 @@ import { ThemedView } from '@/components/themed-view';
 import { supabase } from '@/lib/supabase';
 import { useUser } from '@/context/user-context';
 import { useTheme } from '@/context/theme-context';
+import { useUserDiet } from '@/hooks/useUserDiet';
 
 type FoodItem = {
   original_name: string;
@@ -41,6 +42,7 @@ export default function AIGenerateScreen() {
   const router = useRouter();
   const { isDark, colors } = useTheme();
   const { user } = useUser();
+  const { refreshDiets } = useUserDiet();
   
   const [useHistoricalData, setUseHistoricalData] = useState(false);
   const [preferences, setPreferences] = useState('');
@@ -191,8 +193,11 @@ export default function AIGenerateScreen() {
         .update({ active_diet_id: dietData.diet_id })
         .eq('user_id', user.id);
 
+      // Force the app's cache to pull the new AI diet layout!
+      await refreshDiets();
+
       Alert.alert('Success', 'AI Diet generated and applied!');
-      router.back();
+      router.replace('/(protected)/(pages)/journal');
     } catch (e: any) {
       console.error(e);
       Alert.alert('Error', e.message || 'Failed to save diet.');
