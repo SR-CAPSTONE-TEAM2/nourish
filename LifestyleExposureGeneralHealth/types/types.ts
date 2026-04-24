@@ -47,7 +47,9 @@ export interface UserProfile {
   last_name: string
   birthday: string
   height: number
+  notifications_enabled: boolean
   created_at: string
+  active_diet_id: string | null
 }
 
 export interface Meal {

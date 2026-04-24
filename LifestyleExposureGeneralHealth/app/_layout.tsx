@@ -36,7 +36,7 @@ const AppLightTheme = {
 };
 
 export const unstable_settings = {
-  anchor: '(pages)',
+  anchor: '(protected)',
 };
 
 SplashScreen.preventAutoHideAsync();
