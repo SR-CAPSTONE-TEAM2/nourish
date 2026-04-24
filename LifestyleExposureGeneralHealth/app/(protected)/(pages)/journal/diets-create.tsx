@@ -1,6 +1,6 @@
 // (protected)/(pages)/journal/diets-create.tsx)
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { CreateDietForm } from '@/components/ui/journal/create-diet-form';
@@ -50,30 +50,45 @@ export default function CreateDietScreen() {
       }
 
       setIsNavigating(true);
-      Alert.alert(
-        'Diet Created',
-        'Would you like to set this as your active diet?',
-        [
-          { text: 'Not Now', style: 'cancel', onPress: () => router.back() },
-          {
-            text: 'Yes, Activate',
-            onPress: async () => {
-              try {
-                await selectDiet(newDiet.diet_id);
-                if (router.canDismiss()) router.dismiss(2);
-                else router.back();
-              } catch {
-                router.back();
-              }
+
+      // Cross-platform confirmation
+      if (Platform.OS === 'web') {
+        const activate = window.confirm('Diet Created! Would you like to set this as your active diet?');
+        if (activate) {
+          try {
+            await selectDiet(newDiet.diet_id);
+          } catch {}
+        }
+        router.back();
+      } else {
+        Alert.alert(
+          'Diet Created',
+          'Would you like to set this as your active diet?',
+          [
+            { text: 'Not Now', style: 'cancel', onPress: () => router.back() },
+            {
+              text: 'Yes, Activate',
+              onPress: async () => {
+                try {
+                  await selectDiet(newDiet.diet_id);
+                  if (router.canDismiss()) router.dismiss(2);
+                  else router.back();
+                } catch {
+                  router.back();
+                }
+              },
             },
-          },
-        ],
-        { cancelable: false }
-      );
+          ],
+          { cancelable: false }
+        );
+      }
     } catch (error) {
       setIsNavigating(false);
-      Alert.alert('Error', 'Failed to create diet. Please try again.');
-      // Don't re-throw - let the form handle it gracefully
+      if (Platform.OS === 'web') {
+        window.alert('Failed to create diet. Please try again.');
+      } else {
+        Alert.alert('Error', 'Failed to create diet. Please try again.');
+      }
     }
   };
 
