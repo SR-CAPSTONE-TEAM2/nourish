@@ -44,11 +44,19 @@ export default function Login() {
   const router = useRouter()
   const { isDark, colors } = useTheme();
 
+  const getRedirectUrl = () => {
+    if (Platform.OS === 'web') {
+      // Use the current browser origin so it works on localhost AND Vercel
+      return `${window.location.origin}/(auth)/callback`;
+    }
+    return 'myapp:///(auth)/callback';
+  };
+
   const signInWithGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `myapp:///(auth)/callback`,
+        redirectTo: getRedirectUrl(),
       },
     })
   }
@@ -58,7 +66,7 @@ export default function Login() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `myapp:///(auth)/callback`,
+        emailRedirectTo: getRedirectUrl(),
       },
     })
     if (error) {
