@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { Platform, View, Text } from 'react-native'
 import { supabase } from '@/lib/supabase'
 import { analyzeFoodItem, isOllamaConfigured, type FoodAnalysisResult } from '@/lib/ollama'
 import ParallaxScrollView from '@/components/parallax-scroll-view'
 import { useTheme } from '@/context/theme-context'
+import { ThemedText } from '@/components/themed-text'
 
 type Chemical = {
   id: string
@@ -116,6 +118,24 @@ export default function SearchScreen() {
   const focusBorder = '#8B5CF6'
   const spinnerBorder = isDark ? '#333' : '#ddd'
 
+  // ── Native fallback (iOS / Android) ────────────────────────────────────────
+  if (Platform.OS !== 'web') {
+    return (
+      <ParallaxScrollView
+        headerBackgroundColor={{ light: '#F5F5F5', dark: '#1C1C2E' }}>
+        <View style={{ padding: 24, alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+          <ThemedText type="subtitle" style={{ textAlign: 'center', marginBottom: 12 }}>
+            Search
+          </ThemedText>
+          <ThemedText style={{ textAlign: 'center', opacity: 0.6 }}>
+            The chemical & pesticide search is currently only available on the web version of the app.
+          </ThemedText>
+        </View>
+      </ParallaxScrollView>
+    )
+  }
+
+  // ── Web version ────────────────────────────────────────────────────────────
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#F5F5F5', dark: '#1C1C2E' }}>

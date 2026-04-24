@@ -46,16 +46,6 @@ export default function ProfileScreen() {
             {`Hi, \n${profile?.first_name ?? profile?.username ?? 'there'} 👋`}
           </ThemedText>
 
-          <HorizCardList
-            data={[{ id: 'ask-ai', title: 'Ask AI' }]}
-            renderCard={(item, onPress) => (
-              <DefaultCard data={item} onPress={onPress} />
-            )}
-            title="AI Assistant"
-            onCardPress={() => router.push('/(protected)/(pages)/profile/ask-ai')}
-            containerStyle={{ marginTop: 20 }}
-          />
-
           <ProfileOptionsContainer style={{ marginTop: 20 }}>
             <OptionsRow
               type="select"
