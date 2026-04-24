@@ -896,11 +896,13 @@ export function CreateDietForm({
   const handleSubmit = useCallback(async () => {
     Keyboard.dismiss();
     if (!dietName.trim()) {
-      Alert.alert('Validation Error', 'Please enter a diet name');
+      if (Platform.OS === 'web') window.alert('Please enter a diet name');
+      else Alert.alert('Validation Error', 'Please enter a diet name');
       return;
     }
     if (selectedMeals.length === 0) {
-      Alert.alert('Validation Error', 'Please select at least one meal');
+      if (Platform.OS === 'web') window.alert('Please select at least one meal');
+      else Alert.alert('Validation Error', 'Please select at least one meal');
       return;
     }
 
@@ -921,8 +923,11 @@ export function CreateDietForm({
 
   const handleCancel = useCallback(() => {
     Keyboard.dismiss();
-    const timeoutId = setTimeout(() => {
-      if (hasUnsavedChanges()) {
+    if (hasUnsavedChanges()) {
+      if (Platform.OS === 'web') {
+        const discard = window.confirm('You have unsaved changes. Are you sure you want to discard them?');
+        if (discard) onCancel();
+      } else {
         Alert.alert(
           'Discard Changes?',
           'You have unsaved changes. Are you sure you want to discard them?',
@@ -931,11 +936,10 @@ export function CreateDietForm({
             { text: 'Discard', style: 'destructive', onPress: onCancel },
           ]
         );
-      } else {
-        onCancel();
       }
-    }, 200);
-    return () => clearTimeout(timeoutId);
+    } else {
+      onCancel();
+    }
   }, [hasUnsavedChanges, onCancel]);
 
   const clearAllMeals = useCallback(() => {
